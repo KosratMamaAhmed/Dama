@@ -1,0 +1,6 @@
+{
+  "name": "دامەی کوردی (Kurdish Dama)",
+  "description": "دامەی کوردی - یاری بەناوبانگی کوردی و ڕۆژهەڵاتی بە دیزاینێکی ناوازەی گڵاسمۆرفیزم، ئاستی جیاوازی زیرەکی دەستکرد، و یاسای ڕاستەقینە.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
