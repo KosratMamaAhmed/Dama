@@ -20,6 +20,16 @@ interface AuthSystemProps {
   onClose?: () => void;
 }
 
+// Helpers for password hashing (using the same client-side hash algorithm as before)
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16);
+}
+
 export default function AuthSystem({
   currentUser,
   setCurrentUser,
@@ -48,14 +58,14 @@ export default function AuthSystem({
     try {
       setLoading(true);
 
-      // Call Cloudflare backend /api/auth/register
-      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      // Call Cloudflare backend /api/register
+      const response = await fetch(`${BACKEND_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: username.trim(),
           email_or_phone: emailOrPhone.trim(),
-          password: password,
+          passwordHash: simpleHash(password),
         }),
       });
 
@@ -71,12 +81,12 @@ export default function AuthSystem({
       const data = await response.json() as any;
 
       // Automatically log the user in
-      const loginResponse = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      const loginResponse = await fetch(`${BACKEND_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email_or_phone: emailOrPhone.trim(),
-          password: password,
+          emailOrPhone: emailOrPhone.trim(),
+          passwordHash: simpleHash(password),
         }),
       });
 
@@ -92,7 +102,7 @@ export default function AuthSystem({
         id: String(loginData.user.id),
         username: loginData.user.username,
         email_or_phone: emailOrPhone.trim(),
-        passwordHash: '',
+        passwordHash: simpleHash(password),
         tokens: loginData.user.tokens,
         is_admin: loginData.user.is_admin === 1,
       };
@@ -128,13 +138,13 @@ export default function AuthSystem({
     try {
       setLoading(true);
 
-      // Call Cloudflare backend /api/auth/login
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      // Call Cloudflare backend /api/login
+      const response = await fetch(`${BACKEND_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email_or_phone: emailOrPhone.trim(),
-          password: password,
+          emailOrPhone: emailOrPhone.trim(),
+          passwordHash: simpleHash(password),
         }),
         referrerPolicy: 'no-referrer',
       });
@@ -156,7 +166,7 @@ export default function AuthSystem({
         id: String(data.user.id),
         username: data.user.username,
         email_or_phone: emailOrPhone.trim(),
-        passwordHash: '',
+        passwordHash: simpleHash(password),
         tokens: data.user.tokens,
         is_admin: data.user.is_admin === 1,
       };

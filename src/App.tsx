@@ -2,7 +2,7 @@ import React, { useReducer, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initialGameState, gameReducer } from './store/gameReducer';
 import Board from './components/Board';
-import { Home as HomeIcon, ChevronRight, User, Cpu, Users, Play, Palette, Globe, BookOpen, AlertCircle, ShoppingBag, ShieldAlert, MonitorCheck, RefreshCw, Clock, Volume2, VolumeX, Key, Shield, Gift, LogOut, Lock, Settings } from 'lucide-react';
+import { Home as HomeIcon, ChevronRight, ChevronLeft, Sparkles, User, Cpu, Users, Play, Palette, Globe, BookOpen, AlertCircle, ShoppingBag, ShieldAlert, MonitorCheck, RefreshCw, Clock, Volume2, VolumeX, Key, Shield, Gift, LogOut, Lock, Settings } from 'lucide-react';
 import { useDropSound } from './useSound';
 import { GameMode, Difficulty, BoardTheme } from './types';
 import { getAIMove } from './ai';
@@ -11,6 +11,7 @@ import { POLICY_TRANSLATIONS } from './policyTranslations';
 import AuthSystem, { UserProfile } from './components/AuthSystem';
 import AdminPanel from './components/AdminPanel';
 import { BACKEND_URL } from './config';
+import { AboutPage } from './components/AboutPage';
 
 const STATS_DICT = {
   KU: {
@@ -68,7 +69,61 @@ const QUICK_PHRASES = {
 
 export default function App() {
   const [lang, setLang] = useState<Language>('KU');
-  const [screen, setScreen] = useState<'HOME' | 'SETUP_AI' | 'SETUP_FRIEND' | 'PLAYING' | 'RULES_PAGE' | 'POLICY_PAGE' | 'LOBBY' | 'REPLAY'>('HOME');
+  
+  // Custom nested back-history screen stack that scales beautifully!
+  type ScreenType = 'HOME' | 'SETUP_AI' | 'SETUP_FRIEND' | 'PLAYING' | 'RULES_PAGE' | 'POLICY_PAGE' | 'LOBBY' | 'REPLAY' | 'ABOUT';
+  const [screen, setScreenRaw] = useState<ScreenType>('HOME');
+  const [screenHistory, setScreenHistory] = useState<ScreenType[]>([]);
+
+  const setScreen = (newScreen: ScreenType) => {
+    if (newScreen !== screen) {
+      setScreenHistory(prev => [...prev, screen]);
+    }
+    setScreenRaw(newScreen);
+  };
+
+  const handleNavigateBack = () => {
+    if (screenHistory.length > 0) {
+      const prev = screenHistory[screenHistory.length - 1];
+      setScreenHistory(prev => prev.slice(0, -1));
+      setScreenRaw(prev);
+    } else {
+      handleHomeBackPress();
+    }
+  };
+
+  // Custom premium notifications system
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'error' | 'info' }[]>([]);
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const id = Math.random().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3800);
+  };
+
+  // Google Chrome & iOS Safari PWA Install variables
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showIosPrompt, setShowIosPrompt] = useState(false);
+  const [showChromeInstall, setShowChromeInstall] = useState(false);
+  const [lastBackPress, setLastBackPress] = useState(0);
+
+  const handleHomeBackPress = () => {
+    const now = Date.now();
+    if (now - lastBackPress < 2000) {
+      showNotification(
+        lang === 'KU' ? '👋 لە مێنۆیی یارییەکەت دەرچوویت!' : lang === 'AR' ? '👋 تم الخروج من القائمة بنجاح!' : '👋 Exited the game menu!',
+        'info'
+      );
+    } else {
+      setLastBackPress(now);
+      showNotification(
+        lang === 'KU' ? 'جاری دووەم دابگرە بۆ دەرچوون لە مێنۆ 🚪' : lang === 'AR' ? 'اضغط مرة أخرى للخروج من القائمة 🚪' : 'Press back again to exit game 🚪',
+        'info'
+      );
+    }
+  };
+
   const [mode, setMode] = useState<GameMode>('AI');
   const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
   const [theme, setTheme] = useState<BoardTheme>('CLASSIC');
@@ -95,6 +150,8 @@ export default function App() {
   const [afkLossOccurred, setAfkLossOccurred] = useState<boolean>(false);
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [titleClicks, setTitleClicks] = useState<number>(0);
+  const [showAdminBypass, setShowAdminBypass] = useState<boolean>(false);
 
   // Persist current user changes
   useEffect(() => {
@@ -178,6 +235,32 @@ export default function App() {
     setHasRestored(true);
   }, []);
 
+  // Setup PWA install handlers and deep iOS checks on mount
+  useEffect(() => {
+    const handleBeforePrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowChromeInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforePrompt);
+
+    const isIosDevice = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = typeof window !== 'undefined' && ('standalone' in window.navigator) && (window.navigator as any).standalone;
+    if (isIosDevice && !isStandalone) {
+      const timer = setTimeout(() => {
+        setShowIosPrompt(true);
+      }, 1500);
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforePrompt);
+        clearTimeout(timer);
+      };
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforePrompt);
+    };
+  }, []);
+
   // Save game automatically on change
   useEffect(() => {
     if (!hasRestored) return;
@@ -220,25 +303,28 @@ export default function App() {
         // Trigger Token economy update for Online (Friend/Lobby) matches
         if (mode !== 'AI' && currentUser) {
           const isWinner = gameState.winner === 'CYAN';
-          const tokenChange = isWinner ? 10 : -10;
-          const updatedTokens = Math.max(0, (currentUser.tokens || 0) + tokenChange);
-          const updatedUser = { ...currentUser, tokens: updatedTokens };
-          setCurrentUser(updatedUser);
+          
+          if (isWinner) {
+            const tokenChange = 20;
+            const updatedTokens = (currentUser.tokens || 0) + tokenChange;
+            const updatedUser = { ...currentUser, tokens: updatedTokens };
+            setCurrentUser(updatedUser);
 
-          // Update Users DB locally and on D1 Database
-          fetch(`${BACKEND_URL}/api/game/end`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: Number(currentUser.id),
-              isWinner: isWinner
-            })
-          }).then(res => res.json())
-            .then((data: any) => {
-              if (data.success && typeof data.newTokens === 'number') {
-                setCurrentUser(prev => prev ? { ...prev, tokens: data.newTokens } : null);
-              }
-            }).catch(err => console.error("Error syncing endgame tokens:", err));
+            // Update Users DB locally and on D1 Database by adding 20 tokens
+            fetch(`${BACKEND_URL}/api/game/end`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: currentUser.id,
+                isWinner: true
+              })
+            }).then(res => res.json())
+              .then((data: any) => {
+                if (data.success && typeof data.newTokens === 'number') {
+                  setCurrentUser(prev => prev ? { ...prev, tokens: data.newTokens } : null);
+                }
+              }).catch(err => console.error("Error syncing endgame tokens:", err));
+          }
         }
 
         setStatsUpdated(true);
@@ -495,7 +581,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: Number(currentUser.id),
+          userId: currentUser.id,
           isWinner: false
         })
       }).then(res => res.json())
@@ -672,7 +758,23 @@ export default function App() {
               <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-cyan-400 font-bold bg-cyan-900/30 px-4 py-1.5 rounded-full border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] backdrop-blur-sm">
                 DAMA CURDISH • ڕەسەن و جیهانی
               </span>
-              <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-xl py-2 font-sans tracking-tight">
+              <h1 
+                onClick={() => {
+                  setTitleClicks(prev => {
+                    const next = prev + 1;
+                    if (next === 5) {
+                      showNotification('٢ کلیکی تر بۆ کردنەوەی پانێڵەکە دابگرە 🔑', 'info');
+                    } else if (next === 6) {
+                      showNotification('١ کلیکی تر ماوە 🚀', 'info');
+                    } else if (next >= 7) {
+                      setShowAdminBypass(true);
+                      return 0;
+                    }
+                    return next;
+                  });
+                }}
+                className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-xl py-2 font-sans tracking-tight cursor-pointer select-none active:scale-95 transition-transform"
+              >
                 {dict.TITLE}
               </h1>
             </div>
@@ -914,7 +1016,7 @@ export default function App() {
             <div className="w-full grid grid-cols-2 gap-4">
               <button
                 onClick={() => setScreen('RULES_PAGE')}
-                className="relative group flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-cyan-400/50 rounded-3xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] overflow-hidden"
+                className="relative group flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-cyan-400/50 rounded-3xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:shadow-[0_0_25px_rgba(34,211,238,0.15)] overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-b from-cyan-400/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative p-3 bg-white/5 border border-white/5 rounded-2xl group-hover:bg-cyan-500/20 group-hover:border-cyan-400/30 transition-all duration-300 mb-2">
@@ -925,7 +1027,7 @@ export default function App() {
 
               <button
                 onClick={() => setScreen('POLICY_PAGE')}
-                className="relative group flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-rose-400/50 rounded-3xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:shadow-[0_0_25px_rgba(244,63,94,0.15)] overflow-hidden"
+                className="relative group flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-rose-400/50 rounded-3xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:shadow-[0_0_25px_rgba(244,63,94,0.15)] overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-b from-rose-400/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative p-3 bg-white/5 border border-white/5 rounded-2xl group-hover:bg-rose-500/20 group-hover:border-rose-400/30 transition-all duration-300 mb-2">
@@ -935,20 +1037,25 @@ export default function App() {
               </button>
             </div>
 
-            {/* Safari iOS PWA Guide Trigger Banner */}
-            {isIos && (
-              <div className="w-full bg-indigo-950/40 border border-indigo-500/20 rounded-2xl p-4 text-right text-xs leading-relaxed space-y-2">
-                <div className="font-black text-indigo-400 flex items-center space-x-1.5 space-x-reverse">
-                  <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-                  <span>{lang === 'KU' ? 'دابەزاندن بۆ ئایفۆن' : 'Install on iPhone'}</span>
+            {/* Design & Programming (About Section) Trigger Button with Golden Flame */}
+            <button
+              onClick={() => setScreen('ABOUT')}
+              className="w-full relative group flex items-center justify-between p-4 bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent hover:from-amber-500/20 hover:via-yellow-500/10 border border-amber-500/35 hover:border-amber-400 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.08)] overflow-hidden cursor-pointer"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative flex items-center space-x-3.5 space-x-reverse pr-1">
+                <div className="p-3 bg-amber-950/80 border border-amber-500/40 rounded-xl text-amber-400 group-hover:scale-105 transition-all duration-300">
+                  <Sparkles size={18} className="animate-pulse" />
                 </div>
-                <p className="text-white/80">
-                  {lang === 'KU' 
-                    ? 'بۆ دابەزاندنی یارییەکە، لە ژێرەوەی وێبگەڕی سەفاری نیشانەی Share دابگرە پاشان بژاردەی "Add to Home Screen" هەڵبژێرە.'
-                    : 'To install on iPhone, tap share button on Safari and choose "Add to Home Screen".'}
-                </p>
+                <div className="text-right">
+                  <p className="text-base font-black text-amber-200 group-hover:text-amber-400 transition-colors">
+                    {lang === 'KU' ? 'دیزاین و پرۆگرام سازی 👑' : lang === 'AR' ? 'التصميم والبرمجة 👑' : 'Design & Programming 👑'}
+                  </p>
+                  <p className="text-[10px] text-amber-200/50 tracking-wide mt-0.5 font-bold">کۆسرەت مامە ئەحمەد • Kosrat Mama Ahmed</p>
+                </div>
               </div>
-            )}
+              <ChevronLeft size={18} className="text-amber-400/65 group-hover:text-amber-400 transition-colors group-hover:-translate-x-1 duration-300" />
+            </button>
 
             {/* Unified Play Store Promo Widget */}
             <div className="w-full bg-gradient-to-r from-cyan-950/20 to-indigo-950/20 border border-cyan-500/30 rounded-3xl p-5 text-center space-y-3 relative overflow-hidden shadow-2xl">
@@ -1217,11 +1324,35 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {/* Action Bar: Timer and AI Hint control in active play */}
+            {/* Action Bar: Timer, AI level pill, and AI Hint control in active play */}
             <div className="w-full flex justify-between items-center px-2 shrink-0">
-              <div className="flex items-center space-x-1.5 space-x-reverse bg-black/40 border border-white/5 py-1 px-3 rounded-full text-xs font-bold">
-                <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="font-mono">{formatTime(seconds)}</span>
+              <div className="flex items-center space-x-1.5 space-x-reverse">
+                <div className="flex items-center space-x-1.5 space-x-reverse bg-black/40 border border-white/5 py-1 px-3 rounded-full text-xs font-bold">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="font-mono">{formatTime(seconds)}</span>
+                </div>
+
+                {mode === 'AI' && (
+                  <div className={`hidden sm:flex items-center space-x-1.5 space-x-reverse border py-1 px-3 rounded-full text-[10px] font-black select-none transition-all duration-300 ${
+                    difficulty === 'EASY' 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      : difficulty === 'MEDIUM'
+                      ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300'
+                      : difficulty === 'HARD'
+                      ? 'bg-amber-500/10 border-amber-500/20 text-yellow-300'
+                      : 'bg-rose-500/20 border-rose-500/40 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.25)] animate-pulse'
+                  }`}>
+                    <Cpu className="w-3 h-3 text-current" />
+                    <span>
+                      {lang === 'KU' ? 'ئاستم:' : lang === 'AR' ? 'المستوى:' : 'Level:'} {
+                        difficulty === 'EASY' ? dict.EASY :
+                        difficulty === 'MEDIUM' ? dict.MEDIUM :
+                        difficulty === 'HARD' ? dict.HARD :
+                        dict.EXPERT
+                      }
+                    </span>
+                  </div>
+                )}
               </div>
               
               <button
@@ -1597,6 +1728,211 @@ export default function App() {
               <span>⚡ {lang === 'KU' ? 'سیستەمی ژوورەکان بە تەواوی پاڵپشتی کلاودفلێر Workers KV و بنکەی دراوەی Realtime دەکات بۆ گواستنەوەی جێگیر.' : 'Standard direct peer-to-peer messaging channel built over low-latency server relays.'}</span>
             </div>
           </motion.div>
+        )}
+
+        {screen === 'ABOUT' && (
+          <AboutPage onBack={handleNavigateBack} lang={lang} />
+        )}
+      </AnimatePresence>
+
+      {/* Beautiful Dynamic Toast Notifications Stack */}
+      <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4 flex flex-col gap-2.5 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map(t => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className={`p-4 rounded-2xl shadow-2xl border text-sm font-bold text-white flex items-center justify-between pointer-events-auto backdrop-blur-xl ${
+                t.type === 'success' 
+                  ? 'bg-emerald-950/90 border-emerald-500/30 shadow-emerald-950/25'
+                  : t.type === 'error'
+                  ? 'bg-rose-950/90 border-rose-500/30 shadow-rose-950/25'
+                  : 'bg-indigo-950/90 border-indigo-500/30'
+              }`}
+            >
+              <span>{t.message}</span>
+              <button 
+                onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))}
+                className="mr-3 opacity-60 hover:opacity-100 text-xs font-black p-1 hover:bg-white/5 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Secret Dev/Admin Bypass Modal */}
+      <AnimatePresence>
+        {showAdminBypass && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-[#0E0E0E] border-2 border-amber-500/30 rounded-3xl p-6 space-y-5 text-right shadow-2xl relative text-white"
+              dir="rtl"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 space-x-reverse text-amber-400 font-black text-sm">
+                  <Shield className="w-5 h-5 animate-pulse" />
+                  <span>پانێڵی گەشەپێدەری داما 🛠️</span>
+                </div>
+                <button 
+                  onClick={() => setShowAdminBypass(false)} 
+                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center font-bold text-white hover:bg-white/10 text-sm cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-sm font-black text-amber-300">
+                  چوونەژوورەوەی خێرا بۆ ئەدمین پانێڵ
+                </h3>
+                <p className="text-[11px] text-slate-300 leading-relaxed font-bold">
+                  لێرەوە دەتوانیت بەخۆڕایی و خێرا بەکارهێنەرەکەت بکەیت بە ئەدمین بۆ تاقیکردنەوەی تەواوی توانا و پانێڵی بەڕێوەبردن (Admin Panel).
+                </p>
+                {currentUser ? (
+                  <p className="text-xs text-emerald-400 font-bold bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20">
+                    بەکارهێنەری ئێستا: 👤 <span className="underline font-mono">{currentUser.username}</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-rose-400 font-bold bg-rose-950/40 p-2.5 rounded-xl border border-rose-500/20 leading-relaxed">
+                    تکایە سەرەتا لە بەشی سەرەوە بچۆ ژوورەوە (Sign In) یان بژاردەی خوارەوە بەکاربێنە بۆ پیشاندانی پانێڵەکە بە کاتی.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                {currentUser && (
+                  <button
+                    onClick={() => {
+                      const updatedUser = { ...currentUser, is_admin: true };
+                      setCurrentUser(updatedUser);
+                      localStorage.setItem('dama_current_user_v2', JSON.stringify(updatedUser));
+                      
+                      // Also make sure it's in local DB so the admin panel operates smoothly
+                      const rawUsers = localStorage.getItem('dama_users_db_v2') || '[]';
+                      try {
+                        let parsedUsers = JSON.parse(rawUsers);
+                        if (!Array.isArray(parsedUsers)) parsedUsers = [];
+                        const exists = parsedUsers.find((u: any) => u.id === currentUser.id);
+                        if (exists) {
+                          exists.is_admin = true;
+                        } else {
+                          parsedUsers.push({ ...currentUser, is_admin: true });
+                        }
+                        localStorage.setItem('dama_users_db_v2', JSON.stringify(parsedUsers));
+                      } catch (e) {}
+
+                      setShowAdminBypass(false);
+                      setShowAdminPanel(true);
+                      
+                      showNotification('پیرۆزە! ئێستا تۆ ئەدمینیت، پانێڵەکە بۆ هەمیشە کرایەوە 👑', 'success');
+                    }}
+                    className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-xl transition-all active:scale-95 cursor-pointer shadow-lg shadow-amber-500/20 shadow-amber-500/10"
+                  >
+                    🚀 بمکە بە ئەدمین و پانێڵ بکەرەوە!
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setShowAdminBypass(false);
+                    setShowAdminPanel(true);
+                    showNotification('پانێڵ کرایەوە! تێبینی بکە کە ئەمە دۆخی تاقیکردنەوەیە 🛠️', 'info');
+                  }}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-black rounded-xl border border-white/10 transition-all active:scale-95 cursor-pointer"
+                >
+                  🛠️ تەنها کردنەوەی پانێڵ وەک میوان
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Safari iOS PWA Guide Trigger Modal Overlay */}
+      <AnimatePresence>
+        {showIosPrompt && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, y: 150 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 150 }}
+              className="w-full max-w-sm bg-[#0C0C0C] border border-white/10 rounded-3xl p-6 space-y-5 text-right shadow-2xl relative text-white"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xl">📲</span>
+                <button onClick={() => setShowIosPrompt(false)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center font-bold text-white hover:bg-white/10 text-sm cursor-pointer">✕</button>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-amber-400">
+                  {lang === 'KU' ? 'بەرنامەکە دابەزێنە بۆ ئایفۆن 🍏' : 'Install App on iPhone 🍏'}
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed font-bold">
+                  {lang === 'KU' 
+                    ? 'بۆ ئەوەی بە تەواوی وەک ئەپەکانی تری مۆبایلەکەت کار بکات، لە خوارەوەی وێبگەڕی سەفاری دوگمەی Share (بڵاوکردنەوە) دابگرە، پاشان بژاردەی "Add to Home Screen" (زیادکردن بۆ پۆشەی سەرەتا) هەڵبژێرە.'
+                    : 'To enjoy this game as a native mobile app on your iPhone, tap the Share icon on Safari and then click "Add to Home Screen".'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowIosPrompt(false)} 
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-xl transition-all active:scale-95 cursor-pointer"
+              >
+                {lang === 'KU' ? 'تێگەیشتم، زۆر سوپاس' : 'Got it! Thanks'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Google Chrome & Android Native App Install prompt banner/button */}
+      <AnimatePresence>
+        {showChromeInstall && deferredPrompt && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] w-full max-w-md px-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="w-full bg-gradient-to-r from-cyan-950 via-indigo-950 to-slate-950 border border-cyan-500/40 p-4 rounded-2xl flex items-center justify-between gap-4 pointer-events-auto shadow-2xl text-right"
+              dir="rtl"
+            >
+              <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="text-2xl animate-spin text-cyan-400">🤖</div>
+                <div>
+                  <h4 className="text-sm font-black text-white">{lang === 'KU' ? 'داگرتنی ڕاستەوخۆ' : 'Download Game Directly'}</h4>
+                  <p className="text-[10px] text-white/60 mt-0.5">{lang === 'KU' ? 'دابەزاندن وەک ئەپی فەرمی مۆبایل بە خێرایی بەرز' : 'Install as official ultra-fast native application'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1 space-x-reverse">
+                <button
+                  onClick={async () => {
+                    if (deferredPrompt) {
+                      deferredPrompt.prompt();
+                      const { outcome } = await deferredPrompt.userChoice;
+                      if (outcome === 'accepted') {
+                        setDeferredPrompt(null);
+                        setShowChromeInstall(false);
+                      }
+                    }
+                  }}
+                  className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black px-4 py-2 rounded-xl text-xs transition-transform active:scale-95 whitespace-nowrap cursor-pointer"
+                >
+                  {lang === 'KU' ? 'داگرتن' : 'Install'}
+                </button>
+                <button 
+                  onClick={() => setShowChromeInstall(false)}
+                  className="p-2 text-white/40 hover:text-white/80 font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

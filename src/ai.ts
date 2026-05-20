@@ -83,36 +83,56 @@ function evaluateBoard(board: BoardType, aiPlayer: Player): number {
       // Base values
       if (piece.type === 'MAN') {
         val += 100;
-        // Positional values - incentivize crossing towards enemy line
+        // Positional values - heavily incentivize crossing towards promotion line
         if (piece.player === 'WHITE') {
-          val += r * 15; // WHITE goes r: 0 -> 7
+          val += r * 22; // WHITE goes r: 0 -> 7
         } else {
-          val += (7 - r) * 15; // CYAN goes r: 7 -> 0
+          val += (7 - r) * 22; // CYAN goes r: 7 -> 0
         }
       } else {
-        // KING worth much more due to range power
-        val += 350;
+        // KING is incredibly dominant in Kurdish Dama, worth much more
+        val += 500;
       }
 
-      // Safe edges (c=0 or c=7)
+      // Safe edges (c=0 or c=7) are harder to flank
       if (c === 0 || c === 7) {
-        val += 20;
+        val += 15;
       }
 
       // Stable backlines
       if (piece.player === 'WHITE' && r === 0) {
-        val += 15;
+        val += 25;
       }
       if (piece.player === 'CYAN' && r === 7) {
-        val += 15;
+        val += 25;
       }
 
       // Center occupation & pressure (columns 2, 3, 4, 5)
       if (c >= 2 && c <= 5) {
-        val += 10;
+        val += 12;
         if (c === 3 || c === 4) {
-          val += 10; // high center control
+          val += 12; // High-center control
         }
+      }
+
+      // Chain protection / Friendly neighbors (adjacent pieces of same player)
+      const adjDirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+      let friendlyNeighbors = 0;
+      for (const [dr, dc] of adjDirs) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+          const neighbor = board[nr][nc];
+          if (neighbor && neighbor.player === piece.player) {
+            friendlyNeighbors++;
+          }
+        }
+      }
+      val += friendlyNeighbors * 10; // Extra points for safe connected groups
+
+      // Penalty for isolated vulnerable pieces (0 friendly neighbors)
+      if (friendlyNeighbors === 0) {
+        val -= 15;
       }
 
       if (piece.player === aiPlayer) {
@@ -217,13 +237,31 @@ export function getAIMove(
 
   if (moves.length === 0) return null;
 
-  // 1. EASY difficulty - Choose completely random move
+  // 1. EASY difficulty - Beginner friendly, mostly random choices with occasional simple evaluation
   if (difficulty === 'EASY') {
-    const selected = moves[Math.floor(Math.random() * moves.length)];
-    return { r: selected.r, c: selected.c, dest: selected.move.dest };
+    // 80% random move, 20% intelligent single-step evaluation
+    if (Math.random() > 0.20) {
+      const selected = moves[Math.floor(Math.random() * moves.length)];
+      return { r: selected.r, c: selected.c, dest: selected.move.dest };
+    } else {
+      let bestVal = -Infinity;
+      let bestMoves: typeof moves = [];
+      for (const m of moves) {
+        const { board: nextBoard } = applyMoveSimulated(board, m.r, m.c, m.move, player);
+        const val = evaluateBoard(nextBoard, player);
+        if (val > bestVal) {
+          bestVal = val;
+          bestMoves = [m];
+        } else if (val === bestVal) {
+          bestMoves.push(m);
+        }
+      }
+      const selected = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+      return { r: selected.r, c: selected.c, dest: selected.move.dest };
+    }
   }
 
-  // 2. MEDIUM difficulty - Minimax with depth 2 (solid play, protects pieces, makes no naive mistakes)
+  // 2. MEDIUM difficulty - Minimax with depth 2 (solid intermediate play, guards its checkers carefully)
   if (difficulty === 'MEDIUM') {
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
@@ -257,7 +295,7 @@ export function getAIMove(
     return { r: selected.r, c: selected.c, dest: selected.move.dest };
   }
 
-  // 3. HARD difficulty - Minimax at depth 4
+  // 3. HARD difficulty - Minimax at depth 4 (Highly competitive and professional)
   if (difficulty === 'HARD') {
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
@@ -291,13 +329,13 @@ export function getAIMove(
     return { r: selected.r, c: selected.c, dest: selected.move.dest };
   }
 
-  // 4. EXPERT difficulty (Kurdish: لێهاتوو) - Advanced depth 5 solver with highly aggressive optimization
+  // 4. EXPERT difficulty (Kurdish: زۆر قورس و لێهاتوو) - Ultra deep depth 6-8 alpha-beta engine
   if (difficulty === 'EXPERT') {
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
 
-    // Increase target search depth when search space is smaller (e.g. few candidate moves) for extra superhuman precision
-    const targetDepth = moves.length <= 4 ? 6 : 5;
+    // Increase target search depth when branch factor is low for perfect endgame calculation
+    const targetDepth = moves.length <= 4 ? 8 : (moves.length <= 8 ? 7 : 6);
 
     for (const m of moves) {
       const { board: nextBoard, nextTurnMustJump, turnEnded } = applyMoveSimulated(
@@ -316,7 +354,7 @@ export function getAIMove(
         val = minimax(nextBoard, targetDepth, -Infinity, Infinity, true, player, player, nextTurnMustJump);
       }
 
-      // Add a small positional noise (1e-5) to prevent deterministic loop repeating in case of identical evaluations
+      // Add tiny noise to avoid repeating same routes in recurring positions
       val += Math.random() * 0.05;
 
       if (val > bestVal) {
