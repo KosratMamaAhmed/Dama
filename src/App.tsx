@@ -2,7 +2,7 @@ import React, { useReducer, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initialGameState, gameReducer } from './store/gameReducer';
 import Board from './components/Board';
-import { Home as HomeIcon, ChevronRight, ChevronLeft, Sparkles, User, Cpu, Users, Play, Palette, Globe, BookOpen, AlertCircle, ShoppingBag, ShieldAlert, MonitorCheck, RefreshCw, Clock, Volume2, VolumeX, Key, Shield, Gift, LogOut, Lock, Settings } from 'lucide-react';
+import { Home as HomeIcon, ChevronRight, ChevronLeft, Sparkles, User, Cpu, Users, Play, Palette, Globe, BookOpen, AlertCircle, ShoppingBag, ShieldAlert, MonitorCheck, RefreshCw, Clock, Volume2, VolumeX, Key, Shield, Gift, LogOut, Lock, Settings, CheckCircle } from 'lucide-react';
 import { useDropSound } from './useSound';
 import { GameMode, Difficulty, BoardTheme } from './types';
 import { getAIMove } from './ai';
@@ -152,6 +152,13 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [titleClicks, setTitleClicks] = useState<number>(0);
   const [showAdminBypass, setShowAdminBypass] = useState<boolean>(false);
+  const [bypassPasscode, setBypassPasscode] = useState<string>('');
+  const [adminUser, setAdminUser] = useState<string>('');
+  
+  // Auto Matchmaking State
+  const [showAutoMatch, setShowAutoMatch] = useState<boolean>(false);
+  const [foundPlayers, setFoundPlayers] = useState<{id: string; name: string; avatar: string}[]>([]);
+  const [autoMatchTarget, setAutoMatchTarget] = useState<string>('');
 
   // Persist current user changes
   useEffect(() => {
@@ -216,7 +223,7 @@ export default function App() {
         const parsed = JSON.parse(savedActive);
         if (parsed) {
           if (parsed.lang) setLang(parsed.lang);
-          if (parsed.screen) setScreen(parsed.screen);
+          // if (parsed.screen) setScreen(parsed.screen); // Removed to always start at home
           if (parsed.mode) setMode(parsed.mode);
           if (parsed.difficulty) setDifficulty(parsed.difficulty);
           if (parsed.theme) setTheme(parsed.theme);
@@ -786,16 +793,16 @@ export default function App() {
                   setMode('AI');
                   setScreen('SETUP_AI');
                 }}
-                className="relative group w-full flex items-center justify-between p-3.5 bg-black/40 hover:bg-black/60 border border-cyan-500/30 hover:border-cyan-400 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(34,211,238,0.1)] hover:shadow-[0_0_25px_rgba(34,211,238,0.2)] overflow-hidden cursor-pointer"
+                className="relative group w-full flex items-center justify-between p-3.5 bg-black/40 hover:bg-black/60 border border-cyan-500/30 hover:border-cyan-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center space-x-3.5 space-x-reverse">
-                  <div className="p-2.5 bg-cyan-950/80 border border-cyan-400/40 rounded-xl text-cyan-400 group-hover:scale-105 group-hover:bg-cyan-400 group-hover:text-slate-900 transition-all duration-300 shadow-inner">
-                    <Cpu className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <div className="p-2.5 bg-cyan-950/80 border border-cyan-400/40 rounded-lg text-cyan-400 group-hover:scale-105 group-hover:bg-cyan-400 group-hover:text-slate-900 transition-all duration-300 shadow-inner">
+                    <Cpu className="w-5 h-5 sm:w-5 sm:h-5" />
                   </div>
                   <div className="text-right">
-                    <p className="text-lg sm:text-xl font-black text-white drop-shadow-md">{dict.PLAY_AI}</p>
-                    <p className="text-[11px] text-white/50 tracking-wide mt-0.5">{dict.EASY} • {dict.MEDIUM} • {dict.HARD}</p>
+                    <p className="text-sm sm:text-base font-black text-white drop-shadow-md">{dict.PLAY_AI}</p>
+                    <p className="text-[10px] text-white/50 tracking-wide mt-0.5">{dict.EASY} • {dict.MEDIUM} • {dict.HARD}</p>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-cyan-400 transition-colors relative" />
@@ -806,45 +813,47 @@ export default function App() {
                   setMode('FRIEND');
                   setScreen('SETUP_FRIEND');
                 }}
-                className="relative group w-full flex items-center justify-between p-3.5 bg-black/40 hover:bg-black/60 border border-indigo-500/30 hover:border-indigo-400 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(99,102,241,0.1)] hover:shadow-[0_0_25px_rgba(99,102,241,0.2)] overflow-hidden cursor-pointer"
+                className="relative group w-full flex items-center justify-between p-3.5 bg-black/40 hover:bg-black/60 border border-indigo-500/30 hover:border-indigo-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center space-x-3.5 space-x-reverse">
-                  <div className="p-2.5 bg-indigo-950/80 border border-indigo-400/40 rounded-xl text-indigo-400 group-hover:scale-105 group-hover:bg-indigo-400 group-hover:text-slate-900 transition-all duration-300 shadow-inner">
-                    <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <div className="p-2.5 bg-indigo-950/80 border border-indigo-400/40 rounded-lg text-indigo-400 group-hover:scale-105 group-hover:bg-indigo-400 group-hover:text-slate-900 transition-all duration-300 shadow-inner">
+                    <Users className="w-5 h-5 sm:w-5 sm:h-5" />
                   </div>
                   <div className="text-right">
-                    <p className="text-lg sm:text-xl font-black text-white drop-shadow-md">{dict.PLAY_FRIEND}</p>
-                    <p className="text-[11px] text-white/50 tracking-wide mt-0.5">Local Pass & Play</p>
+                    <p className="text-sm sm:text-base font-black text-white drop-shadow-md">{dict.PLAY_FRIEND}</p>
+                    <p className="text-[10px] text-white/50 tracking-wide mt-0.5">Local Pass & Play</p>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-indigo-400 transition-colors relative" />
               </button>
 
               {/* ONLINE LOBBY SYSTEM BUTTON */}
-              <button
-                onClick={() => {
-                  if (!currentUser) {
-                    setShowAuthModal(true);
-                    return;
-                  }
-                  setScreen('LOBBY');
-                  handleCreateRoom(); // Prepare dummy host room key instantly
-                }}
-                className="relative group w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-950/20 to-yellow-950/10 hover:from-amber-950/40 hover:to-yellow-905/20 border border-yellow-600/30 hover:border-yellow-400 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_25px_rgba(245,158,11,0.2)] overflow-hidden cursor-pointer"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative flex items-center space-x-3.5 space-x-reverse">
-                  <div className="p-2.5 bg-amber-950 border border-amber-500/40 rounded-xl text-amber-400 group-hover:scale-105 group-hover:bg-amber-550 group-hover:text-amber-950 transition-all duration-300 shadow-inner">
-                    <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
+              {import.meta.env.VITE_ENABLE_ONLINE === 'show' && (
+                <button
+                  onClick={() => {
+                    if (!currentUser) {
+                      setShowAuthModal(true);
+                      return;
+                    }
+                    setScreen('LOBBY');
+                    handleCreateRoom(); // Prepare dummy host room key instantly
+                  }}
+                  className="relative group w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-950/20 to-yellow-950/10 hover:from-amber-950/40 hover:to-yellow-905/20 border border-yellow-600/30 hover:border-yellow-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="relative flex items-center space-x-3.5 space-x-reverse">
+                    <div className="p-2.5 bg-amber-950 border border-amber-500/40 rounded-lg text-amber-400 group-hover:scale-105 group-hover:bg-amber-550 group-hover:text-amber-950 transition-all duration-300 shadow-inner">
+                      <Globe className="w-5 h-5 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm sm:text-base font-black text-amber-200 drop-shadow-md">{(dict as any).LOBBY_ROOM}</p>
+                      <p className="text-[10px] text-amber-200/50 tracking-wide mt-0.5">Online Matchmaking & Lobby</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg sm:text-xl font-black text-amber-200 drop-shadow-md">{(dict as any).LOBBY_ROOM}</p>
-                    <p className="text-[11px] text-amber-200/50 tracking-wide mt-0.5">Online Lobby Code System</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-amber-400/50 group-hover:text-amber-400 transition-colors relative" />
-              </button>
+                  <ChevronRight className="w-5 h-5 text-amber-400/50 group-hover:text-amber-400 transition-colors relative" />
+                </button>
+              )}
             </div>
 
             {/* Theme & Skins Dashboard Frame */}
@@ -1721,6 +1730,44 @@ export default function App() {
                   <p className="text-xs text-rose-400 text-center font-bold">{lobbyError}</p>
                 )}
               </div>
+
+              {/* Box 3: Auto Matchmaking */}
+              <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 p-4 rounded-2xl space-y-3">
+                <span className="text-[11px] font-bold text-indigo-300 block text-right">
+                  {lang === 'KU' ? '٣. گەڕانی خۆکار بۆ یاریزانی ئۆنلاین:' : '3. Auto-Match with Online Players:'}
+                </span>
+
+                <button
+                  onClick={() => {
+                    const mockNames = ['Barzan_22', 'Ramyar99', 'Sima_Krd', 'PeshawaMaster', 'Alan_Hawler'];
+                    setShowAutoMatch(true);
+                    setFoundPlayers([]);
+                    
+                    setTimeout(() => {
+                      setFoundPlayers([{id: '1', name: mockNames[0], avatar: '🤠'}]);
+                    }, 1000);
+                    setTimeout(() => {
+                      setFoundPlayers(p => [...p, {id: '2', name: mockNames[1], avatar: '😎'}]);
+                    }, 2500);
+                    setTimeout(() => {
+                      const finalId = '3';
+                      setFoundPlayers(p => [...p, {id: finalId, name: mockNames[2], avatar: '🤩'}]);
+                      setAutoMatchTarget(finalId);
+                      
+                      setTimeout(() => {
+                        setPlayer1Name(`${currentUser ? currentUser.username : 'تۆ'} (You)`);
+                        setPlayer2Name(`${mockNames[2]} 🌐`);
+                        setShowAutoMatch(false);
+                        triggerPeerConnectionSim();
+                      }, 1500);
+                    }, 4000);
+                  }}
+                  className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-200 py-3 rounded-xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.15)] flex justify-center items-center space-x-2 space-x-reverse"
+                >
+                  <Globe className="w-4 h-4 animate-pulse" />
+                  <span>{lang === 'KU' ? 'دۆزینەوەی یاریزان بە خۆکاری 🔎' : 'Find Opponent Automatically 🔎'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Peer-to-peer simulator guidelines */}
@@ -1732,6 +1779,70 @@ export default function App() {
 
         {screen === 'ABOUT' && (
           <AboutPage onBack={handleNavigateBack} lang={lang} />
+        )}
+      </AnimatePresence>
+
+      {/* Auto Matchmaking Overlay */}
+      <AnimatePresence>
+        {showAutoMatch && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-lg">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="w-full max-w-sm border border-indigo-500/30 bg-black/50 p-6 rounded-3xl space-y-6 text-center shadow-[0_0_50px_rgba(99,102,241,0.15)] relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/10 to-transparent pointer-events-none" />
+              
+              <div className="space-y-2 relative z-10">
+                <Globe className="w-10 h-10 text-indigo-400 mx-auto animate-spin" style={{ animationDuration: '3s' }} />
+                <h3 className="text-xl font-black text-indigo-300">
+                  {lang === 'KU' ? 'گەڕان بۆ یاریزان...' : 'Matching Players...'}
+                </h3>
+              </div>
+              
+              <div className="space-y-3 relative z-10">
+                {foundPlayers.length === 0 ? (
+                  <p className="text-[11px] text-white/50 font-bold animate-pulse">
+                    {lang === 'KU' ? 'پشکنینی سێرڤەری گشتی...' : 'Scanning global servers...'}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[150px] overflow-hidden">
+                    <AnimatePresence>
+                      {foundPlayers.map(fp => (
+                        <motion.div
+                          key={fp.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex items-center space-x-3 space-x-reverse bg-white/5 border p-2.5 rounded-xl ${
+                            autoMatchTarget === fp.id ? 'border-emerald-400/50 bg-emerald-500/10' : 'border-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-lg flex items-center justify-center">
+                            {fp.avatar}
+                          </div>
+                          <div className="flex-1 text-right">
+                            <p className="text-sm font-black text-white">{fp.name}</p>
+                            <p className="text-[10px] text-emerald-400 font-bold">زیندووە (لە خەتە)</p>
+                          </div>
+                          {autoMatchTarget === fp.id && (
+                            <CheckCircle className="w-5 h-5 text-emerald-400" />
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                onClick={() => setShowAutoMatch(false)}
+                className="w-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 py-3 rounded-xl text-xs font-black transition-all active:scale-95 cursor-pointer relative z-10"
+              >
+                {lang === 'KU' ? 'پەشیمان بوونەوە' : 'Cancel'}
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -1778,10 +1889,14 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 space-x-reverse text-amber-400 font-black text-sm">
                   <Shield className="w-5 h-5 animate-pulse" />
-                  <span>پانێڵی گەشەپێدەری داما 🛠️</span>
+                  <span>پاراستنی کۆنتڕۆڵ و ئەدمین پانێڵ 🔐</span>
                 </div>
                 <button 
-                  onClick={() => setShowAdminBypass(false)} 
+                  onClick={() => {
+                    setShowAdminBypass(false);
+                    setAdminUser('');
+                    setBypassPasscode('');
+                  }} 
                   className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center font-bold text-white hover:bg-white/10 text-sm cursor-pointer"
                 >
                   ✕
@@ -1790,64 +1905,90 @@ export default function App() {
               
               <div className="space-y-3">
                 <h3 className="text-sm font-black text-amber-300">
-                  چوونەژوورەوەی خێرا بۆ ئەدمین پانێڵ
+                  داخڵکردنی پاسکۆدی پارێزراو
                 </h3>
                 <p className="text-[11px] text-slate-300 leading-relaxed font-bold">
-                  لێرەوە دەتوانیت بەخۆڕایی و خێرا بەکارهێنەرەکەت بکەیت بە ئەدمین بۆ تاقیکردنەوەی تەواوی توانا و پانێڵی بەڕێوەبردن (Admin Panel).
+                  بۆ ڕێگریکردن لە هەر چوونەژوورەوەیەکی نەخوازراو، تکایە یوزەرنەیم و پاسکۆدی تایبەت بە سەرਪەرشتیاری فەرمی (Admin Key) بنووسە:
                 </p>
+                
                 {currentUser ? (
                   <p className="text-xs text-emerald-400 font-bold bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-500/20">
-                    بەکارهێنەری ئێستا: 👤 <span className="underline font-mono">{currentUser.username}</span>
+                    بەکارهێنەر بۆ بەرزکردنەوە: 👤 <span className="underline font-mono">{currentUser.username}</span>
                   </p>
                 ) : (
                   <p className="text-[11px] text-rose-400 font-bold bg-rose-950/40 p-2.5 rounded-xl border border-rose-500/20 leading-relaxed">
-                    تکایە سەرەتا لە بەشی سەرەوە بچۆ ژوورەوە (Sign In) یان بژاردەی خوارەوە بەکاربێنە بۆ پیشاندانی پانێڵەکە بە کاتی.
+                    تکایە سەرەتا بچۆ ژوورەوە (Sign In) تا بتوانی بەکارهێنەرەکەت بکەیت بە ئەدمین.
                   </p>
                 )}
+
+                <div className="relative mt-2 space-y-2">
+                  <input
+                    type="text"
+                    value={adminUser}
+                    onChange={(e) => setAdminUser(e.target.value)}
+                    placeholder="ناوی بەکارهێنەر (Username)..."
+                    className="w-full text-center font-mono text-sm py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-amber-500/50 transition-all font-bold"
+                  />
+                  <input
+                    type="password"
+                    maxLength={32}
+                    value={bypassPasscode}
+                    onChange={(e) => setBypassPasscode(e.target.value)}
+                    placeholder="پاسکۆدی نهێنی (Password)..."
+                    className="w-full text-center tracking-widest font-mono text-sm py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-amber-500/50 transition-all font-bold"
+                  />
+                  <div className="text-[10px] text-slate-400 text-center mt-1.5 font-bold leading-relaxed">
+                    تێبینی: پاسوۆرد و یوزەرنەیم لە ڕێگەی Environment Variables (<span className="text-amber-400 font-mono">VITE_ADMIN_USER</span> و <span className="text-amber-400 font-mono">VITE_ADMIN_PASSWORD</span>) جێگیر دەکرێن. نەبوونیان، دەگۆڕێت بۆ دیفاڵت.
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
-                {currentUser && (
-                  <button
-                    onClick={() => {
-                      const updatedUser = { ...currentUser, is_admin: true };
-                      setCurrentUser(updatedUser);
-                      localStorage.setItem('dama_current_user_v2', JSON.stringify(updatedUser));
-                      
-                      // Also make sure it's in local DB so the admin panel operates smoothly
-                      const rawUsers = localStorage.getItem('dama_users_db_v2') || '[]';
-                      try {
-                        let parsedUsers = JSON.parse(rawUsers);
-                        if (!Array.isArray(parsedUsers)) parsedUsers = [];
-                        const exists = parsedUsers.find((u: any) => u.id === currentUser.id);
-                        if (exists) {
-                          exists.is_admin = true;
-                        } else {
-                          parsedUsers.push({ ...currentUser, is_admin: true });
-                        }
-                        localStorage.setItem('dama_users_db_v2', JSON.stringify(parsedUsers));
-                      } catch (e) {}
-
-                      setShowAdminBypass(false);
-                      setShowAdminPanel(true);
-                      
-                      showNotification('پیرۆزە! ئێستا تۆ ئەدمینیت، پانێڵەکە بۆ هەمیشە کرایەوە 👑', 'success');
-                    }}
-                    className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-xl transition-all active:scale-95 cursor-pointer shadow-lg shadow-amber-500/20 shadow-amber-500/10"
-                  >
-                    🚀 بمکە بە ئەدمین و پانێڵ بکەرەوە!
-                  </button>
-                )}
-                
                 <button
                   onClick={() => {
-                    setShowAdminBypass(false);
-                    setShowAdminPanel(true);
-                    showNotification('پانێڵ کرایەوە! تێبینی بکە کە ئەمە دۆخی تاقیکردنەوەیە 🛠️', 'info');
+                    const expectedUser = import.meta.env.VITE_ADMIN_USER || 'admin';
+                    const expectedPass = import.meta.env.VITE_ADMIN_PASSWORD || '778899';
+                    
+                    if (adminUser === expectedUser && bypassPasscode === expectedPass) {
+                      if (currentUser) {
+                        const updatedUser = { ...currentUser, is_admin: true };
+                        setCurrentUser(updatedUser);
+                        localStorage.setItem('dama_current_user_v2', JSON.stringify(updatedUser));
+                        
+                        // Also make sure it's in local DB
+                        const rawUsers = localStorage.getItem('dama_users_db_v2') || '[]';
+                        try {
+                          let parsedUsers = JSON.parse(rawUsers);
+                          if (!Array.isArray(parsedUsers)) parsedUsers = [];
+                          const exists = parsedUsers.find((u: any) => u.id === currentUser.id);
+                          if (exists) {
+                            exists.is_admin = true;
+                          } else {
+                            parsedUsers.push({ ...currentUser, is_admin: true });
+                          }
+                          localStorage.setItem('dama_users_db_v2', JSON.stringify(parsedUsers));
+                        } catch (e) {}
+
+                        setShowAdminBypass(false);
+                        setAdminUser('');
+                        setBypassPasscode('');
+                        setShowAdminPanel(true);
+                        showNotification('پیرۆزە سەرپەرشتیار! ئێستە تۆ تەنها ئەدمینی یارییەکەی 👑', 'success');
+                      } else {
+                        // Open as temporary guest admin
+                        setShowAdminBypass(false);
+                        setAdminUser('');
+                        setBypassPasscode('');
+                        setShowAdminPanel(true);
+                        showNotification('پانێڵ کرایەوە وەک ئەدمینی کاتی (میوان) 🛠️', 'info');
+                      }
+                    } else {
+                      showNotification('زانیارییەکانی دەربازبوون هەڵەیە! ❌', 'error');
+                    }
                   }}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-black rounded-xl border border-white/10 transition-all active:scale-95 cursor-pointer"
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-xl transition-all active:scale-95 cursor-pointer shadow-lg shadow-amber-500/20"
                 >
-                  🛠️ تەنها کردنەوەی پانێڵ وەک میوان
+                  🚀 پشتڕاستکردنەوە و چوونە ژوورەوە
                 </button>
               </div>
             </motion.div>
@@ -1978,9 +2119,18 @@ export default function App() {
                 onClose={() => {
                   setShowAdminPanel(false);
                   // Refresh currentUser session to apply real-time changes
-                  const raw = localStorage.getItem('dama_current_user_v2');
-                  if (raw) {
-                    try { setCurrentUser(JSON.parse(raw)); } catch (e) {}
+                  const rawUser = localStorage.getItem('dama_current_user_v2');
+                  const rawDB = localStorage.getItem('dama_users_db_v2');
+                  if (rawUser && rawDB) {
+                    try {
+                      const user = JSON.parse(rawUser);
+                      const db = JSON.parse(rawDB);
+                      const updatedMe = db.find((u: any) => u.id === user.id);
+                      if (updatedMe) {
+                        setCurrentUser(updatedMe);
+                        localStorage.setItem('dama_current_user_v2', JSON.stringify(updatedMe));
+                      }
+                    } catch (e) {}
                   }
                 }}
               />

@@ -1,8 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;700;900&family=Inter:wght@400;500;700;900&display=swap');
+@font-face {
+  font-family: 'Unikuweb';
+  src: url('/fonts/Unikuweb.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Noto Sans Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Unikuweb", "Noto Sans Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {

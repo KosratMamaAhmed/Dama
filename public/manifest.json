@@ -1,0 +1,15 @@
+{
+  "name": "Dama Curdish",
+  "short_name": "Dama",
+  "description": "Kurdish Checkers game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#030712",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%231e293b%22/><rect x=%220%22 y=%220%22 width=%2250%22 height=%2250%22 fill=%22%23cbd5e1%22/><rect x=%2250%22 y=%2250%22 width=%2250%22 height=%2250%22 fill=%22%23cbd5e1%22/><circle cx=%2225%22 cy=%2225%22 r=%2220%22 fill=%22%23eab308%22/><circle cx=%2275%22 cy=%2275%22 r=%2220%22 fill=%22%230891b2%22/></svg>",
+      "sizes": "any"
+    }
+  ]
+}

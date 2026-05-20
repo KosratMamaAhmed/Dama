@@ -65,9 +65,9 @@ export const AboutPage: React.FC<{ onBack: () => void; lang: 'KU' | 'AR' | 'EN' 
          </div>
 
          <div className="text-center space-y-3 mb-10">
-            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-yellow-500 tracking-tight">دەرمانەکان</h1>
+            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-yellow-500 tracking-tight">دامەی کوردی</h1>
             <p className="text-sm text-slate-300 leading-relaxed font-medium opacity-90 max-w-[280px] mx-auto">
-               فەرهەنگ و ڕێبەرێکی گشتگیر بۆ ناسینی دەرمانەکان و زانیارییە پزیشکییەکان بە زمانی شیرینی کوردی.
+               مەبەست لە دروستکردنی ئەم یاریە بەسەربردنی کاتێکی خۆشە بۆ یاریزانانی دامەی کوردی بە دیزاینێکی مۆدێرن و سەرنجڕاکێش.
             </p>
             <div className="inline-flex items-center justify-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/10 mt-2">
                 <span className="text-slate-300 text-[11px] font-bold tracking-wider">وەشانی 1.0.0 PRO</span>

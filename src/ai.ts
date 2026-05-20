@@ -239,8 +239,8 @@ export function getAIMove(
 
   // 1. EASY difficulty - Beginner friendly, mostly random choices with occasional simple evaluation
   if (difficulty === 'EASY') {
-    // 80% random move, 20% intelligent single-step evaluation
-    if (Math.random() > 0.20) {
+    // 90% random move, 10% intelligent single-step evaluation
+    if (Math.random() > 0.10) {
       const selected = moves[Math.floor(Math.random() * moves.length)];
       return { r: selected.r, c: selected.c, dest: selected.move.dest };
     } else {
@@ -261,8 +261,13 @@ export function getAIMove(
     }
   }
 
-  // 2. MEDIUM difficulty - Minimax with depth 2 (solid intermediate play, guards its checkers carefully)
+  // 2. MEDIUM difficulty - Solid intermediate, 20% random and 80% Minimax at depth 2
   if (difficulty === 'MEDIUM') {
+    if (Math.random() < 0.20) {
+      const selected = moves[Math.floor(Math.random() * moves.length)];
+      return { r: selected.r, c: selected.c, dest: selected.move.dest };
+    }
+
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
 
@@ -295,7 +300,7 @@ export function getAIMove(
     return { r: selected.r, c: selected.c, dest: selected.move.dest };
   }
 
-  // 3. HARD difficulty - Minimax at depth 4 (Highly competitive and professional)
+  // 3. HARD difficulty - Minimax at depth 2 (Highly competitive and professional)
   if (difficulty === 'HARD') {
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
@@ -312,9 +317,9 @@ export function getAIMove(
       const oppPlayer: Player = player === 'CYAN' ? 'WHITE' : 'CYAN';
       let val: number;
       if (turnEnded) {
-        val = minimax(nextBoard, 4, -Infinity, Infinity, false, oppPlayer, player, null);
+        val = minimax(nextBoard, 2, -Infinity, Infinity, false, oppPlayer, player, null);
       } else {
-        val = minimax(nextBoard, 4, -Infinity, Infinity, true, player, player, nextTurnMustJump);
+        val = minimax(nextBoard, 2, -Infinity, Infinity, true, player, player, nextTurnMustJump);
       }
 
       if (val > bestVal) {
@@ -329,13 +334,13 @@ export function getAIMove(
     return { r: selected.r, c: selected.c, dest: selected.move.dest };
   }
 
-  // 4. EXPERT difficulty (Kurdish: زۆر قورس و لێهاتوو) - Ultra deep depth 6-8 alpha-beta engine
+  // 4. EXPERT difficulty (Kurdish: زۆر قورس و لێهاتوو) - Deep depth 3 alpha-beta engine
   if (difficulty === 'EXPERT') {
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
 
-    // Increase target search depth when branch factor is low for perfect endgame calculation
-    const targetDepth = moves.length <= 4 ? 8 : (moves.length <= 8 ? 7 : 6);
+    // Safe target depth to avoid freezing the main React thread (reduced to 3)
+    const targetDepth = 3;
 
     for (const m of moves) {
       const { board: nextBoard, nextTurnMustJump, turnEnded } = applyMoveSimulated(

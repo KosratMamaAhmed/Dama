@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, ShieldAlert, Key, Smartphone, Mail, Lock, Gift, LogOut } from 'lucide-react';
+import { User, ShieldAlert, Key, Smartphone, Mail, Lock, Gift, LogOut, Eye, EyeOff } from 'lucide-react';
 import { Language } from '../translations';
 import { BACKEND_URL } from '../config';
 
@@ -40,6 +40,7 @@ export default function AuthSystem({
   const [username, setUsername] = useState('');
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -114,11 +115,22 @@ export default function AuthSystem({
 
     } catch (err: any) {
       console.error(err);
-      let localizedMsg = err.message;
-      if (err.message?.includes('UNIQUE constraint failed') || err.message?.includes('already exists')) {
-        localizedMsg = lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : lang === 'AR' ? 'هذا الاسم أو الهاتف مسجل مسبقاً!' : 'Username or email/phone already exists!';
+      const isNetworkError = err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('TypeError');
+      if (isNetworkError) {
+        setError(
+          lang === 'KU' 
+            ? 'پەیوەندی بە سێرڤەرەوە نەکرا! دڵنیابە لە کارکردنی Workers key و هێڵەکەت.' 
+            : lang === 'AR'
+            ? 'فصل الاتصال بالسيرفر! يرجى التأكد من تشغيل الـ Workers.'
+            : 'Could not connect to the backend server! Please verify your Workers and network.'
+        );
+      } else {
+        let localizedMsg = err.message;
+        if (err.message?.includes('UNIQUE constraint failed') || err.message?.includes('already exists')) {
+          localizedMsg = lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : lang === 'AR' ? 'هذا الاسم أو الهاتف مسجل مسبقاً!' : 'Username or email/phone already exists!';
+        }
+        setError(localizedMsg);
       }
-      setError(localizedMsg);
     } finally {
       setLoading(false);
     }
@@ -256,6 +268,9 @@ export default function AuthSystem({
                 <label className="text-[11px] font-black text-white/60 block">{lang === 'KU' ? 'ناوی بەکارهێنەر (یوزەر)' : lang === 'AR' ? 'اسم المستخدم' : 'Username'}</label>
                 <div className="relative">
                   <input
+                    id="username"
+                    name="username"
+                    autoComplete="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -273,6 +288,9 @@ export default function AuthSystem({
               </label>
               <div className="relative">
                 <input
+                  id="emailOrPhone"
+                  name="emailOrPhone"
+                  autoComplete="email"
                   type="text"
                   value={emailOrPhone}
                   onChange={(e) => setEmailOrPhone(e.target.value)}
@@ -287,13 +305,22 @@ export default function AuthSystem({
               <label className="text-[11px] font-black text-white/60 block">{lang === 'KU' ? 'پاسوۆرد' : lang === 'AR' ? 'كلمة المرور' : 'Password'}</label>
               <div className="relative">
                 <input
-                  type="password"
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="******"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-3.5 text-sm text-white text-right focus:outline-none focus:border-cyan-500 transition-all font-mono"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-3.5 text-sm text-white text-right focus:outline-none focus:border-cyan-500 transition-all font-mono pl-10"
                 />
-                <Lock className="absolute left-3.5 top-3 w-4 h-4 text-white/30" />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute left-3.5 top-2.5 p-1 rounded-md text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
