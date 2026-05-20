@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, ShieldAlert, Key, Smartphone, Mail, Lock, Gift, LogOut } from 'lucide-react';
 import { Language } from '../translations';
+import { BACKEND_URL } from '../config';
 
 export interface UserProfile {
   id: string;
@@ -19,16 +20,6 @@ interface AuthSystemProps {
   onClose?: () => void;
 }
 
-// Helpers for password hashing simulation (using safe client hashing)
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(16);
-}
-
 export default function AuthSystem({
   currentUser,
   setCurrentUser,
@@ -41,36 +32,11 @@ export default function AuthSystem({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Get users database from localStorage
-  const getUsersDB = (): UserProfile[] => {
-    const raw = localStorage.getItem('dama_users_db_v2');
-    if (!raw) {
-      // Default Admin Account + guest seed
-      const defaultAdmin: UserProfile = {
-        id: 'DAMA-777777',
-        username: 'admin',
-        email_or_phone: 'admin@dama.com',
-        passwordHash: simpleHash('admin123'),
-        tokens: 9999,
-        is_admin: true,
-      };
-      localStorage.setItem('dama_users_db_v2', JSON.stringify([defaultAdmin]));
-      return [defaultAdmin];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch (e) {
-      return [];
-    }
-  };
-
-  const saveUsersDB = (db: UserProfile[]) => {
-    localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
-  };
-
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setSuccess('');
 
@@ -79,40 +45,78 @@ export default function AuthSystem({
       return;
     }
 
-    const db = getUsersDB();
-    const exists = db.find(
-      (u) =>
-        u.username.toLowerCase() === username.trim().toLowerCase() ||
-        u.email_or_phone.toLowerCase() === emailOrPhone.trim().toLowerCase()
-    );
+    try {
+      setLoading(true);
 
-    if (exists) {
-      setError(lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : lang === 'AR' ? 'هذا الاسم أو الهاتف مسجل مسبقاً!' : 'Username or email/phone already exists!');
-      return;
+      // Call Cloudflare backend /api/auth/register
+      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          email_or_phone: emailOrPhone.trim(),
+          password: password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let parsedErr;
+        try {
+          parsedErr = JSON.parse(errorText);
+        } catch(e) {}
+        throw new Error(parsedErr?.error || parsedErr?.message || errorText || 'Error occurred!');
+      }
+
+      const data = await response.json() as any;
+
+      // Automatically log the user in
+      const loginResponse = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email_or_phone: emailOrPhone.trim(),
+          password: password,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        throw new Error(lang === 'KU' ? 'هەژمار دروستکرا، بەڵام چوونەژوورە سەرکەوتوو نەبوو. تکایە پاشان بچۆ ژوورەوە!' : 'Account created but automatic login failed. Please sign in manually!');
+      }
+
+      const loginData = await loginResponse.json() as any;
+
+      setSuccess(lang === 'KU' ? 'هەژمارەکە بە سەرکەوتوویی دروستکرا! ٥٠ تۆکن پێشکەش کرا 🎁' : lang === 'AR' ? 'تم إنشاء الحساب بنجاح! حصلت على 50 توكن 🎁' : 'Account created successfully! You received 50 tokens 🎁');
+      
+      const loggedUser: UserProfile = {
+        id: String(loginData.user.id),
+        username: loginData.user.username,
+        email_or_phone: emailOrPhone.trim(),
+        passwordHash: '',
+        tokens: loginData.user.tokens,
+        is_admin: loginData.user.is_admin === 1,
+      };
+
+      setTimeout(() => {
+        setCurrentUser(loggedUser);
+        if (onClose) onClose();
+      }, 1500);
+
+    } catch (err: any) {
+      console.error(err);
+      let localizedMsg = err.message;
+      if (err.message?.includes('UNIQUE constraint failed') || err.message?.includes('already exists')) {
+        localizedMsg = lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : lang === 'AR' ? 'هذا الاسم أو الهاتف مسجل مسبقاً!' : 'Username or email/phone already exists!';
+      }
+      setError(localizedMsg);
+    } finally {
+      setLoading(false);
     }
-
-    const randomID = `DAMA-${Math.floor(100000 + Math.random() * 900000)}`;
-    const newUser: UserProfile = {
-      id: randomID,
-      username: username.trim(),
-      email_or_phone: emailOrPhone.trim(),
-      passwordHash: simpleHash(password),
-      tokens: 50, // Initial Gift of 50 tokens
-      is_admin: username.toLowerCase() === 'admin',
-    };
-
-    db.push(newUser);
-    saveUsersDB(db);
-
-    setSuccess(lang === 'KU' ? 'هەژمارەکە بە سەرکەوتوویی دروستکرا! ٥٠ تۆکن پێشکەش کرا 🎁' : lang === 'AR' ? 'تم إنشاء الحساب بنجاح! حصلت على 50 توكن 🎁' : 'Account created successfully! You received 50 tokens 🎁');
-    setTimeout(() => {
-      setCurrentUser(newUser);
-      if (onClose) onClose();
-    }, 1800);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setSuccess('');
 
@@ -121,42 +125,53 @@ export default function AuthSystem({
       return;
     }
 
-    const db = getUsersDB();
-    const user = db.find(
-      (u) =>
-        (u.email_or_phone.toLowerCase() === emailOrPhone.trim().toLowerCase() ||
-         u.username.toLowerCase() === emailOrPhone.trim().toLowerCase()) &&
-        u.passwordHash === simpleHash(password)
-    );
+    try {
+      setLoading(true);
 
-    if (!user) {
-      setError(lang === 'KU' ? 'زانیارییەکان نادروستن!' : lang === 'AR' ? 'بيانات الدخول غير صحيحة!' : 'Incorrect credentials!');
-      return;
-    }
+      // Call Cloudflare backend /api/auth/login
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email_or_phone: emailOrPhone.trim(),
+          password: password,
+        }),
+        referrerPolicy: 'no-referrer',
+      });
 
-    // Check if banned
-    if (user.bannedUntil && user.bannedUntil > Date.now()) {
-      const remainingMs = user.bannedUntil - Date.now();
-      const remainingSecs = Math.ceil(remainingMs / 1000);
-      const remainingMins = Math.ceil(remainingSecs / 60);
-      
-      let errMsg = '';
-      if (lang === 'KU') {
-        errMsg = `🛑 تۆ باندکراویت! بۆ ماوەی ${remainingMins} خولەکی تر ناتوانیت بچیتە ژوورەوە.`;
-      } else if (lang === 'AR') {
-        errMsg = `🛑 أنت محظور حالياً! لا يمكنك الدخول لمدة ${remainingMins} دقيقة أخرى.`;
-      } else {
-        errMsg = `🛑 You are banned! You cannot login for another ${remainingMins} minutes.`;
+      if (!response.ok) {
+        const errorText = await response.text();
+        let parsedErr;
+        try {
+          parsedErr = JSON.parse(errorText);
+        } catch(e) {}
+        throw new Error(parsedErr?.error || parsedErr?.message || errorText || 'Incorrect credentials!');
       }
-      setError(errMsg);
-      return;
-    }
 
-    setSuccess(lang === 'KU' ? 'چوونەژوورەوە سەرکەوتوو بوو!' : lang === 'AR' ? 'تم تسجيل الدخول بنجاح!' : 'Login successful!');
-    setTimeout(() => {
-      setCurrentUser(user);
-      if (onClose) onClose();
-    }, 1000);
+      const data = await response.json() as any;
+
+      setSuccess(lang === 'KU' ? 'چوونەژوورەوە سەرکەوتوو بوو!' : lang === 'AR' ? 'تم تسجيل الدخول بنجاح!' : 'Login successful!');
+      
+      const loggedUser: UserProfile = {
+        id: String(data.user.id),
+        username: data.user.username,
+        email_or_phone: emailOrPhone.trim(),
+        passwordHash: '',
+        tokens: data.user.tokens,
+        is_admin: data.user.is_admin === 1,
+      };
+
+      setTimeout(() => {
+        setCurrentUser(loggedUser);
+        if (onClose) onClose();
+      }, 1000);
+
+    } catch (err: any) {
+      console.error(err);
+      setError(lang === 'KU' ? 'زانیارییەکان نادروستن یان پەیوەندی سێرڤەر نییە!' : lang === 'AR' ? 'بيانات الدخول غير صحيحة أو السيرفر غير متصل!' : 'Incorrect credentials or backend connection issue!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -171,7 +186,7 @@ export default function AuthSystem({
           </div>
           <div>
             <h3 className="text-xl font-black text-white">{currentUser.username}</h3>
-            <p className="text-xs text-white/50 font-mono mt-1 mt-0.5">ID: {currentUser.id}</p>
+            <p className="text-xs text-white/50 font-mono mt-0.5">ID: {currentUser.id}</p>
           </div>
 
           <div className="bg-gradient-to-br from-amber-500/15 to-yellow-500/5 border border-amber-500/30 rounded-2xl p-4 flex justify-between items-center space-x-4 space-x-reverse">
@@ -202,7 +217,7 @@ export default function AuthSystem({
             <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-cyan-300">
               {authMode === 'LOGIN' 
                 ? (lang === 'KU' ? 'چوونەژورەوەی ئۆնلاین' : lang === 'AR' ? 'تسجيل الدخول' : 'Online Login')
-                : (lang === 'KU' ? 'درۆستکردنی هەژمار' : lang === 'AR' ? 'إنشاء حساب جديد' : 'Sign Up')}
+                : (lang === 'KU' ? 'درۆستکردنی هەژمار' : lang === 'AR' ? 'إنشاء حساب جدید' : 'Sign Up')}
             </h2>
             <p className="text-xs text-white/50">
               {authMode === 'LOGIN'
@@ -212,14 +227,14 @@ export default function AuthSystem({
           </div>
 
           {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl text-xs text-rose-300 flex items-center space-x-2 space-x-reverse justify-end">
+            <div className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl text-xs text-rose-300 flex items-center space-x-2 space-x-reverse justify-end font-sans">
               <span>{error}</span>
               <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400" />
             </div>
           )}
 
           {success && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl text-xs text-emerald-300 flex items-center space-x-2 space-x-reverse justify-end">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl text-xs text-emerald-300 flex items-center space-x-2 space-x-reverse justify-end font-sans">
               <span>{success}</span>
               <Gift className="w-4 h-4 shrink-0 text-emerald-400" />
             </div>
@@ -274,15 +289,19 @@ export default function AuthSystem({
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-black rounded-xl transition-all shadow-md active:scale-95 cursor-pointer text-sm"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-black rounded-xl transition-all shadow-md active:scale-95 cursor-pointer text-sm disabled:opacity-50"
             >
-              {authMode === 'LOGIN'
-                ? (lang === 'KU' ? 'چوونەژوورەوە 🔑' : lang === 'AR' ? 'تسجيل الدخول' : 'Sign In')
-                : (lang === 'KU' ? 'تۆمارکردن و وەرگرتنی دیاری 🎁' : lang === 'AR' ? 'إنشاء حساب وهدية التوكنات' : 'Get Starter Gift')}
+              {loading 
+                ? (lang === 'KU' ? 'تکایە چاوەڕوان بە... ⏳' : 'Please wait... ⏳') 
+                : authMode === 'LOGIN'
+                  ? (lang === 'KU' ? 'چوونەژوورەوە 🔑' : lang === 'AR' ? 'تسجيل الدخول' : 'Sign In')
+                  : (lang === 'KU' ? 'تۆمارکردن و وەرگرتنی دیاری 🎁' : lang === 'AR' ? 'إنشاء حساب وهدية التوكنات' : 'Get Starter Gift')
+              }
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-white/5">
+          <div className="text-center pt-2 border-t border-white/5 font-sans">
             <button
               onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
               className="text-xs text-cyan-400 hover:underline font-bold"

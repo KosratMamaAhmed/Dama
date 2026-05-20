@@ -10,6 +10,7 @@ import { TRANSLATIONS, Language } from './translations';
 import { POLICY_TRANSLATIONS } from './policyTranslations';
 import AuthSystem, { UserProfile } from './components/AuthSystem';
 import AdminPanel from './components/AdminPanel';
+import { BACKEND_URL } from './config';
 
 const STATS_DICT = {
   KU: {
@@ -224,18 +225,20 @@ export default function App() {
           const updatedUser = { ...currentUser, tokens: updatedTokens };
           setCurrentUser(updatedUser);
 
-          // Update Users DB
-          const rawDB = localStorage.getItem('dama_users_db_v2');
-          if (rawDB) {
-            try {
-              const db = JSON.parse(rawDB) as UserProfile[];
-              const idx = db.findIndex(u => u.id === currentUser.id);
-              if (idx > -1) {
-                db[idx].tokens = updatedTokens;
-                localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
+          // Update Users DB locally and on D1 Database
+          fetch(`${BACKEND_URL}/api/game/end`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: Number(currentUser.id),
+              isWinner: isWinner
+            })
+          }).then(res => res.json())
+            .then((data: any) => {
+              if (data.success && typeof data.newTokens === 'number') {
+                setCurrentUser(prev => prev ? { ...prev, tokens: data.newTokens } : null);
               }
-            } catch (e) {}
-          }
+            }).catch(err => console.error("Error syncing endgame tokens:", err));
         }
 
         setStatsUpdated(true);
@@ -487,18 +490,20 @@ export default function App() {
       const updatedUser = { ...currentUser, tokens: updatedTokens };
       setCurrentUser(updatedUser);
 
-      // Save to Users DB
-      const rawDB = localStorage.getItem('dama_users_db_v2');
-      if (rawDB) {
-        try {
-          const db = JSON.parse(rawDB) as UserProfile[];
-          const idx = db.findIndex(u => u.id === currentUser.id);
-          if (idx > -1) {
-            db[idx].tokens = updatedTokens;
-            localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
+      // Sync upfront deduction to Cloudflare D1
+      fetch(`${BACKEND_URL}/api/game/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: Number(currentUser.id),
+          isWinner: false
+        })
+      }).then(res => res.json())
+        .then((data: any) => {
+          if (data.success && typeof data.newTokens === 'number') {
+            setCurrentUser(prev => prev ? { ...prev, tokens: data.newTokens } : null);
           }
-        } catch (e) {}
-      }
+        }).catch(err => console.error("Error syncing upfront token deduction:", err));
     }
 
     setMode('FRIEND');
