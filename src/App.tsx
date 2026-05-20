@@ -2,12 +2,14 @@ import React, { useReducer, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initialGameState, gameReducer } from './store/gameReducer';
 import Board from './components/Board';
-import { Home as HomeIcon, ChevronRight, User, Cpu, Users, Play, Palette, Globe, BookOpen, AlertCircle, ShoppingBag, ShieldAlert, MonitorCheck, RefreshCw, Clock, Volume2, VolumeX } from 'lucide-react';
+import { Home as HomeIcon, ChevronRight, User, Cpu, Users, Play, Palette, Globe, BookOpen, AlertCircle, ShoppingBag, ShieldAlert, MonitorCheck, RefreshCw, Clock, Volume2, VolumeX, Key, Shield, Gift, LogOut, Lock, Settings } from 'lucide-react';
 import { useDropSound } from './useSound';
 import { GameMode, Difficulty, BoardTheme } from './types';
 import { getAIMove } from './ai';
 import { TRANSLATIONS, Language } from './translations';
 import { POLICY_TRANSLATIONS } from './policyTranslations';
+import AuthSystem, { UserProfile } from './components/AuthSystem';
+import AdminPanel from './components/AdminPanel';
 
 const STATS_DICT = {
   KU: {
@@ -71,6 +73,41 @@ export default function App() {
   const [theme, setTheme] = useState<BoardTheme>('CLASSIC');
   const [isLandscape, setIsLandscape] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // New features state
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const raw = localStorage.getItem('dama_current_user_v2');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [pieceFlag, setPieceFlag] = useState<string>(() => {
+    const saved = localStorage.getItem('dama_piece_flag_v1');
+    return saved || 'CLASSIC';
+  });
+
+  const [lastMoveTimestamp, setLastMoveTimestamp] = useState<number>(Date.now());
+  const [afkLossOccurred, setAfkLossOccurred] = useState<boolean>(false);
+  const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+
+  // Persist current user changes
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('dama_current_user_v2', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('dama_current_user_v2');
+    }
+  }, [currentUser]);
+
+  // Persist piece flag selection
+  useEffect(() => {
+    localStorage.setItem('dama_piece_flag_v1', pieceFlag);
+  }, [pieceFlag]);
   
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
@@ -178,12 +215,78 @@ export default function App() {
           localStorage.setItem('dama_stats_v1', JSON.stringify(updated));
           return updated;
         });
+
+        // Trigger Token economy update for Online (Friend/Lobby) matches
+        if (mode !== 'AI' && currentUser) {
+          const isWinner = gameState.winner === 'CYAN';
+          const tokenChange = isWinner ? 10 : -10;
+          const updatedTokens = Math.max(0, (currentUser.tokens || 0) + tokenChange);
+          const updatedUser = { ...currentUser, tokens: updatedTokens };
+          setCurrentUser(updatedUser);
+
+          // Update Users DB
+          const rawDB = localStorage.getItem('dama_users_db_v2');
+          if (rawDB) {
+            try {
+              const db = JSON.parse(rawDB) as UserProfile[];
+              const idx = db.findIndex(u => u.id === currentUser.id);
+              if (idx > -1) {
+                db[idx].tokens = updatedTokens;
+                localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
+              }
+            } catch (e) {}
+          }
+        }
+
         setStatsUpdated(true);
       }
     } else {
       setStatsUpdated(false);
     }
-  }, [gameState.winner, mode, statsUpdated]);
+  }, [gameState.winner, mode, statsUpdated, currentUser]);
+
+  // Reset lastMoveTimestamp when board state shifts or turns update
+  useEffect(() => {
+    setLastMoveTimestamp(Date.now());
+  }, [gameState.board, gameState.turn]);
+
+  // 4 minutes AFK Inactivity checking routine
+  useEffect(() => {
+    let intervalId: any = null;
+    if (screen === 'PLAYING' && !gameState.winner) {
+      intervalId = setInterval(() => {
+        const inactiveMs = Date.now() - lastMoveTimestamp;
+        if (inactiveMs >= 4 * 60 * 1000) { // 240,000 miliseconds (4 minutes)
+          setAfkLossOccurred(true);
+
+          if (mode !== 'AI' && currentUser) {
+            const updatedTokens = Math.max(0, (currentUser.tokens || 0) - 10);
+            const updatedUser = { ...currentUser, tokens: updatedTokens };
+            setCurrentUser(updatedUser);
+
+            // Update Users DB
+            const rawDB = localStorage.getItem('dama_users_db_v2');
+            if (rawDB) {
+              try {
+                const db = JSON.parse(rawDB) as UserProfile[];
+                const idx = db.findIndex(u => u.id === currentUser.id);
+                if (idx > -1) {
+                  db[idx].tokens = updatedTokens;
+                  localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
+                }
+              } catch (e) {}
+            }
+          }
+
+          setScreen('HOME');
+          handleFullReset();
+        }
+      }, 1000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [screen, gameState.winner, lastMoveTimestamp, mode, currentUser]);
 
   const playSound = useDropSound();
   
@@ -344,15 +447,6 @@ export default function App() {
     // Generate randomized code
     const mockCode = Math.floor(1000 + Math.random() * 9000).toString();
     setRoomCode(mockCode);
-    
-    // Set simulated peer join after 6 seconds
-    setTimeout(() => {
-      setIsLobbySearching(false);
-      setLobbySuccess(true);
-      if (soundEnabled) {
-        try { playSound('win'); } catch(e){}
-      }
-    }, 5000);
   };
 
   // Join Room with a code
@@ -361,23 +455,52 @@ export default function App() {
       setLobbyError(lang === 'KU' ? 'کۆدەکە نادروستە!' : lang === 'AR' ? 'الرمز غير صالح!' : 'Invalid code!');
       return;
     }
-    setIsLobbySearching(true);
     setLobbyError('');
-    setLobbySuccess(false);
-    
-    setTimeout(() => {
-      setIsLobbySearching(false);
-      setRoomCode(typedRoomCode);
-      setLobbySuccess(true);
-      if (soundEnabled) {
-        try { playSound('win'); } catch(e){}
-      }
-    }, 2500);
+    setRoomCode(typedRoomCode);
+    triggerPeerConnectionSim(); // Immediate feedback since they explicitly initiated connection!
+  };
+
+  // Explicitly simulate player joining (prevents automatic connection "لە خۆیەوە")
+  const triggerPeerConnectionSim = () => {
+    setIsLobbySearching(false);
+    setLobbySuccess(true);
+    if (soundEnabled) {
+      try { playSound('win'); } catch(e){}
+    }
   };
 
   const handleStartLobbyMatch = () => {
-    setPlayer1Name(lang === 'KU' ? 'کۆسرەت (تۆ)' : 'Kosret (You)');
+    // If user has insufficient tokens, warn them
+    if (currentUser && currentUser.tokens < 10) {
+      alert(lang === 'KU' ? 'تۆکنی پێویستت نییە بۆ یاریکردن! لانی کەم پێویستت بە ١٠ تۆکنە.' : 'Insufficient tokens! You need at least 10 tokens to play.');
+      return;
+    }
+
+    // Assign names
+    const myName = currentUser ? currentUser.username : (lang === 'KU' ? 'کۆسرەت' : 'Kosret');
+    setPlayer1Name(`${myName} (${lang === 'KU' ? 'تۆ' : 'You'})`);
     setPlayer2Name(lang === 'KU' ? 'هاوڕێی میوان 👤' : 'Guest Friend 👤');
+    
+    // Deduct 10 tokens up front (if won they will get 20 back: meaning net +10 tokens)
+    if (currentUser) {
+      const updatedTokens = Math.max(0, currentUser.tokens - 10);
+      const updatedUser = { ...currentUser, tokens: updatedTokens };
+      setCurrentUser(updatedUser);
+
+      // Save to Users DB
+      const rawDB = localStorage.getItem('dama_users_db_v2');
+      if (rawDB) {
+        try {
+          const db = JSON.parse(rawDB) as UserProfile[];
+          const idx = db.findIndex(u => u.id === currentUser.id);
+          if (idx > -1) {
+            db[idx].tokens = updatedTokens;
+            localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
+          }
+        } catch (e) {}
+      }
+    }
+
     setMode('FRIEND');
     setScreen('PLAYING');
     handleFullReset();
@@ -484,8 +607,35 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center mx-3 text-[10px] font-black text-cyan-500/50 tracking-widest uppercase">
-            DAMA
+          <div className="flex items-center space-x-2 space-x-reverse ml-2">
+            {currentUser ? (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center space-x-1.5 space-x-reverse bg-gradient-to-r from-amber-500/15 to-yellow-500/5 hover:from-amber-500/25 border border-amber-500/40 px-3 py-1 rounded-full text-[11px] font-black text-amber-300 transition-all select-none active:scale-95"
+              >
+                <span>👤 {currentUser.username}</span>
+                <span className="font-mono bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] text-yellow-200">
+                  {currentUser.tokens} 🪙
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center space-x-1 space-x-reverse bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-200 py-1 px-3.5 rounded-full text-[10px] font-black transition-all active:scale-95 cursor-pointer"
+              >
+                <span>👤 {lang === 'KU' ? 'چوونەژوورەوە' : lang === 'AR' ? 'الدخول' : 'Sign In'}</span>
+              </button>
+            )}
+
+            {currentUser?.is_admin && (
+              <button
+                onClick={() => setShowAdminPanel(true)}
+                className="p-1 px-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-full text-[10px] font-black text-red-300 transition-all active:scale-95 cursor-pointer flex items-center space-x-1 space-x-reverse"
+              >
+                <Shield className="w-3 h-3 text-red-400" />
+                <span>ADMIN</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -567,6 +717,10 @@ export default function App() {
               {/* ONLINE LOBBY SYSTEM BUTTON */}
               <button
                 onClick={() => {
+                  if (!currentUser) {
+                    setShowAuthModal(true);
+                    return;
+                  }
                   setScreen('LOBBY');
                   handleCreateRoom(); // Prepare dummy host room key instantly
                 }}
@@ -587,32 +741,75 @@ export default function App() {
             </div>
 
             {/* Theme & Skins Dashboard Frame */}
-            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3 backdrop-blur-md shrink-0">
-              <div className="flex items-center space-x-2 space-x-reverse mb-1 text-cyan-400">
-                <Palette className="w-5 h-5" />
-                <h3 className="font-black text-sm">{dict.BOARD_THEME}</h3>
+            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 space-y-5 backdrop-blur-md shrink-0">
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 space-x-reverse mb-1 text-cyan-400">
+                  <Palette className="w-5 h-5" />
+                  <h3 className="font-black text-sm">{dict.BOARD_THEME}</h3>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {([
+                    { key: 'CLASSIC', label: dict.THEME_CLASSIC, color: 'bg-slate-700' },
+                    { key: 'EMERALD', label: dict.THEME_EMERALD, color: 'bg-emerald-700' },
+                    { key: 'GOLD', label: dict.THEME_GOLD, color: 'bg-amber-600' },
+                    { key: 'ROYAL', label: dict.THEME_ROYAL, color: 'bg-violet-700' },
+                    { key: 'KURDISH_WOOD', label: (dict as any).THEME_KURDISH_WOOD, color: 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-700 via-amber-800 to-amber-950 border border-amber-600' },
+                    { key: 'GOLD_BLACK', label: lang === 'KU' ? 'مێکس گۆڵد/ڕەش 🪙' : lang === 'AR' ? 'ذهبي وأسود 🪙' : 'Gold & Black 🪙', color: 'bg-gradient-to-r from-yellow-500 to-black' },
+                    { key: 'BLUE_BROWN', label: lang === 'KU' ? 'شین و قاوەیی 💙' : lang === 'AR' ? 'أزرق وبني 💙' : 'Blue & Brown 💙', color: 'bg-sky-400 border border-amber-800' },
+                    { key: 'TOKYO_NEON', label: lang === 'KU' ? 'تۆکیۆ نیۆن 🌆' : lang === 'AR' ? 'طوكيو نيون 🌆' : 'Tokyo Neon 🌆', color: 'bg-purple-600 border border-cyan-400' },
+                    { key: 'COSMIC_VOID', label: lang === 'KU' ? 'بۆشایی کەت 🌌' : lang === 'AR' ? 'الفضاء الكوني 🌌' : 'Cosmic Void 🌌', color: 'bg-indigo-950 border border-fuchsia-400' }
+                  ] as const).map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => setTheme(t.key)}
+                      className={`flex items-center space-x-2 space-x-reverse p-2.5 rounded-xl border text-[10px] sm:text-xs font-black transition-all ${
+                        theme === t.key 
+                          ? 'bg-amber-500/15 border-amber-400 text-white shadow-md shadow-amber-500/10' 
+                          : 'bg-black/20 border-white/5 text-white/60 hover:text-white'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded-full shrink-0 ${t.color}`} />
+                      <span className="truncate">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {([
-                  { key: 'CLASSIC', label: dict.THEME_CLASSIC, color: 'bg-slate-700' },
-                  { key: 'EMERALD', label: dict.THEME_EMERALD, color: 'bg-emerald-700' },
-                  { key: 'GOLD', label: dict.THEME_GOLD, color: 'bg-amber-600' },
-                  { key: 'ROYAL', label: dict.THEME_ROYAL, color: 'bg-violet-700' },
-                  { key: 'KURDISH_WOOD', label: (dict as any).THEME_KURDISH_WOOD, color: 'bg-amber-900 border border-amber-500' }
-                ] as const).map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setTheme(t.key)}
-                    className={`flex items-center space-x-2 space-x-reverse p-3 rounded-xl border text-xs font-bold transition-all ${
-                      theme === t.key 
-                        ? 'bg-amber-500/10 border-amber-400 text-white shadow-md shadow-amber-500/10' 
-                        : 'bg-black/20 border-white/5 text-white/60 hover:text-white'
-                    } ${t.key === 'KURDISH_WOOD' ? 'col-span-2 sm:col-span-1' : ''}`}
-                  >
-                    <span className={`w-3.5 h-3.5 rounded-full ${t.color}`} />
-                    <span className="truncate">{t.label}</span>
-                  </button>
-                ))}
+
+              {/* Piece design Flag selector */}
+              <div className="space-y-3 border-t border-white/5 pt-4">
+                <div className="flex items-center space-x-2 space-x-reverse text-emerald-400">
+                  <Globe className="w-5 h-5 text-emerald-400" />
+                  <h3 className="font-black text-sm">
+                    {lang === 'KU' ? 'ئاڵا و ڕووبەڕووبوونەوەی بەردەکان ⚔️' : lang === 'AR' ? 'تصميم ومواجهات الأحجار ⚔️' : 'Piece Matchups & Styles ⚔️'}
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                  {([
+                    { key: 'CLASSIC', label: lang === 'KU' ? 'کلاسیک شین/سپی' : lang === 'AR' ? 'كلاسيك أزرق/أبيض' : 'Classic Blue/White', flag: '🔵⚪' },
+                    { key: 'KURD_IRAQ', label: lang === 'KU' ? 'کوردستان ضد عێراق' : lang === 'AR' ? 'كردستان ضد العراق' : 'Kurd vs Iraq ☀️', flag: '☀️🇮🇶' },
+                    { key: 'IRAN_USA', label: lang === 'KU' ? 'ئێران ضد ئەمریکا' : lang === 'AR' ? 'إيران ضد أمريكا' : 'Iran vs USA 🇺🇸', flag: '🇮🇷🇺🇸' },
+                    { key: 'IRAQ_KURD', label: lang === 'KU' ? 'عێراق ضد کوردستان' : lang === 'AR' ? 'العراق ضد كردستان' : 'Iraq vs Kurd ☀️', flag: '🇮🇶☀️' },
+                    { key: 'USA_IRAQ', label: lang === 'KU' ? 'ئەمریکا ضد عێراق' : lang === 'AR' ? 'أمريكا ضد العراق' : 'USA vs Iraq 🇮🇶', flag: '🇺🇸🇮🇶' },
+                    { key: 'BLACK_WHITE', label: lang === 'KU' ? 'ڕەش × سپی 🖤' : lang === 'AR' ? 'أسود ضد أبيض 🖤' : 'Black vs White 🖤', flag: '🖤🤍' },
+                    { key: 'BLUE_BLACK', label: lang === 'KU' ? 'شین × ڕەش 💙' : lang === 'AR' ? 'أزرق ضد أسود 💙' : 'Blue vs Black', flag: '💙🖤' },
+                    { key: 'GOLD_BLACK', label: lang === 'KU' ? 'گۆڵد × ڕەش 🪙' : lang === 'AR' ? 'ذهبي ضد أسود 🪙' : 'Gold vs Black', flag: '🪙🖤' },
+                    { key: 'WHITE_RED', label: lang === 'KU' ? 'سپی × سور 🤍' : lang === 'AR' ? 'أبيض ضد أحمر 🤍' : 'White vs Red ❤️', flag: '🤍❤️' },
+                    { key: 'ORANGE_GREEN', label: lang === 'KU' ? 'پرتەقاڵی × سەوز 🧡' : lang === 'AR' ? 'برتقالي ضد أخضر 🧡' : 'Orange vs Green', flag: '🧡💚' }
+                  ] as const).map((f) => (
+                    <button
+                      key={f.key}
+                      onClick={() => setPieceFlag(f.key)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border text-[10px] sm:text-xs font-black transition-all ${
+                        pieceFlag === f.key 
+                          ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-md shadow-emerald-550/10' 
+                          : 'bg-black/20 border-white/5 text-white/60 hover:text-white'
+                      }`}
+                    >
+                      <span className="truncate">{f.label}</span>
+                      <span className="text-sm font-normal select-none shrink-0 ml-1">{f.flag}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1077,6 +1274,7 @@ export default function App() {
                 lang={lang}
                 coachHintSource={coachHintSource}
                 coachHintDest={coachHintDest}
+                pieceStyle={pieceFlag}
               />
             </div>
 
@@ -1324,9 +1522,18 @@ export default function App() {
                 </div>
 
                 {isLobbySearching ? (
-                  <div className="flex items-center space-x-2 space-x-reverse text-xs text-cyan-300/80 justify-center py-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span className="font-bold">{lang === 'KU' ? 'چاوەڕێی هاوڕێتین بۆ بەستنەوە...' : 'Waiting for guest player to join...'}</span>
+                  <div className="flex flex-col items-center space-y-2.5 justify-center py-2 bg-black/20 border border-white/5 p-3 rounded-xl mt-1">
+                    <div className="flex items-center space-x-2 space-x-reverse text-xs text-cyan-300/80">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span className="font-bold">{lang === 'KU' ? 'چاوەڕێی هاوڕێتین بۆ بەستنەوە...' : 'Waiting for guest player to join...'}</span>
+                    </div>
+                    
+                    <button
+                      onClick={triggerPeerConnectionSim}
+                      className="text-[11px] font-black bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-200 py-1.5 px-3.5 rounded-xl transition-all cursor-pointer active:scale-95 shadow-md flex items-center space-x-1.5 space-x-reverse"
+                    >
+                      <span>👤 {lang === 'KU' ? 'تاقیکردنەوە: بەستنەوەی یاریزانی دووەم' : 'Test: Connect Second Player'}</span>
+                    </button>
                   </div>
                 ) : lobbySuccess ? (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-center space-y-2">
@@ -1385,6 +1592,94 @@ export default function App() {
               <span>⚡ {lang === 'KU' ? 'سیستەمی ژوورەکان بە تەواوی پاڵپشتی کلاودفلێر Workers KV و بنکەی دراوەی Realtime دەکات بۆ گواستنەوەی جێگیر.' : 'Standard direct peer-to-peer messaging channel built over low-latency server relays.'}</span>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Auth System Modal Overlay */}
+      <AnimatePresence>
+        {showAuthModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-md relative"
+            >
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="absolute top-4 left-4 z-50 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white font-bold transition-all"
+              >
+                ✕
+              </button>
+              <AuthSystem
+                currentUser={currentUser}
+                setCurrentUser={setCurrentUser}
+                lang={lang}
+                onClose={() => setShowAuthModal(false)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Admin Panel Modal Overlay */}
+      <AnimatePresence>
+        {showAdminPanel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-4xl relative text-right"
+            >
+              <AdminPanel
+                lang={lang}
+                onClose={() => {
+                  setShowAdminPanel(false);
+                  // Refresh currentUser session to apply real-time changes
+                  const raw = localStorage.getItem('dama_current_user_v2');
+                  if (raw) {
+                    try { setCurrentUser(JSON.parse(raw)); } catch (e) {}
+                  }
+                }}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* AFK Loss Notification Overlay */}
+      <AnimatePresence>
+        {afkLossOccurred && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-lg text-right select-none">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              className="w-full max-w-sm bg-slate-900 border border-rose-500/30 p-6 rounded-3xl space-y-5 text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 inset-x-0 h-1 bg-rose-500 animate-pulse" />
+              <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/30 rounded-full flex items-center justify-center mx-auto text-rose-400">
+                <Clock className="w-7 h-7" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-xl font-black text-rose-400">
+                  {lang === 'KU' ? 'تایم ئاوت! کاتت تەواو بوو ⏰' : lang === 'AR' ? 'انتهى الوقت المحدد لك! ⏰' : 'Match Time Out! ⏰'}
+                </h3>
+                <p className="text-xs text-white/70 leading-relaxed font-bold">
+                  {lang === 'KU'
+                    ? 'لەبەر ئەوەی بەینی جووڵەکانت زیاتر بوو لە ٤ خولەک، یارییەکەت بۆ بەرامبەر دۆڕاند و ١٠ تۆکنت کەم کرایەوە.'
+                    : 'Because you remained inactive for more than 4 minutes, you have been forfeited from the match (-10 tokens penalization applied).'}
+                </p>
+              </div>
+              <button
+                onClick={() => setAfkLossOccurred(false)}
+                className="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all active:scale-95 cursor-pointer shadow-md"
+              >
+                {lang === 'KU' ? 'تێگەیشتم، بگەڕێوە سەرەتا' : 'Okey, Back to home'}
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

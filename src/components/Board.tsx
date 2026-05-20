@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { GameAction, GameState, Move, Position, BoardTheme } from '../types';
-import Piece from './Piece';
+import Piece, { PieceDesignStyle } from './Piece';
 import { getMovesForPiece, getAllValidMoves } from '../gameLogic';
 import { RefreshCw, Home } from 'lucide-react';
 import { Language } from '../translations';
@@ -17,6 +17,7 @@ interface BoardProps {
   lang?: Language;
   coachHintSource?: Position | null;
   coachHintDest?: Position | null;
+  pieceStyle?: string;
 }
 
 export default function Board({
@@ -31,6 +32,7 @@ export default function Board({
   lang = 'KU',
   coachHintSource,
   coachHintDest,
+  pieceStyle = 'CLASSIC',
 }: BoardProps) {
   const { board, selectedPos, turn, winner } = gameState;
 
@@ -88,7 +90,47 @@ export default function Board({
       darkSquare: 'bg-[linear-gradient(to_bottom_right,#451a03_0%,#1a0500_100%)] border-stone-950 shadow-[inset_0_4px_10px_rgba(0,0,0,0.8)]',
       hintColor: 'bg-amber-500 group-hover:scale-125 shadow-[0_0_15px_#f59e0b]',
     },
+    GOLD_BLACK: {
+      outer: 'bg-gradient-to-br from-neutral-900 to-amber-950 border-amber-500/50 shadow-amber-950/85 shadow-[inset_0_2px_20px_rgba(245,158,11,0.25)]',
+      lightSquare: 'bg-gradient-to-br from-yellow-550 via-amber-500 to-amber-600 border-yellow-450/40 text-slate-950',
+      darkSquare: 'bg-neutral-950 border-neutral-900 shadow-[inset_0_4px_12px_rgba(0,0,0,0.9)]',
+      hintColor: 'bg-teal-400 group-hover:scale-125 shadow-[0_0_12px_#2dd4bf]',
+    },
+    BLUE_BROWN: {
+      outer: 'bg-gradient-to-br from-sky-950 to-amber-950 border-sky-500/30 shadow-sky-950/50',
+      lightSquare: 'bg-gradient-to-br from-sky-200 via-sky-300 to-sky-400 border-sky-100/40 text-sky-950',
+      darkSquare: 'bg-gradient-to-br from-amber-900 via-amber-950 to-stone-950 border-amber-950 shadow-[inset_0_4px_10px_rgba(0,0,0,0.73)]',
+      hintColor: 'bg-amber-300 group-hover:scale-125 shadow-[0_0_12px_#f59e0b]',
+    },
+    TOKYO_NEON: {
+      outer: 'bg-slate-950 border-purple-500/50 shadow-purple-950/80 shadow-[0_0_25px_rgba(168,85,247,0.3)]',
+      lightSquare: 'bg-zinc-900 border-purple-500/10',
+      darkSquare: 'bg-black border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.15)_inset]',
+      hintColor: 'bg-cyan-400 group-hover:scale-125 shadow-[0_0_15px_#22d3ee]',
+    },
+    COSMIC_VOID: {
+      outer: 'bg-[linear-gradient(135deg,#090514_0%,#180f30_100%)] border-indigo-500/40 shadow-indigo-950/90 shadow-[0_0_30px_rgba(99,102,241,0.2)]',
+      lightSquare: 'bg-indigo-950/40 border-indigo-500/10 text-indigo-100',
+      darkSquare: 'bg-[linear-gradient(135deg,#03000a_0%,#0c041c_100%)] border-indigo-950 shadow-[inset_0_4px_12px_rgba(0,0,0,0.95)]',
+      hintColor: 'bg-fuchsia-400 group-hover:scale-125 shadow-[0_0_15px_#e879f9]',
+    },
   }[theme];
+
+  // Helper inside Board to assign piece designs per player according to selected Matchup
+  const getPieceDesign = (player: 'CYAN' | 'WHITE', matchup: string): PieceDesignStyle => {
+    if (matchup === 'KURD_IRAQ') return player === 'CYAN' ? 'KURD' : 'IRAQ';
+    if (matchup === 'IRAN_USA') return player === 'CYAN' ? 'IRAN' : 'USA';
+    if (matchup === 'IRAQ_KURD') return player === 'CYAN' ? 'IRAQ' : 'KURD';
+    if (matchup === 'USA_IRAQ') return player === 'CYAN' ? 'USA' : 'IRAQ';
+    if (matchup === 'BLACK_WHITE') return player === 'CYAN' ? 'BLACK' : 'WHITE';
+    if (matchup === 'BLUE_BLACK') return player === 'CYAN' ? 'BLUE' : 'BLACK';
+    if (matchup === 'GOLD_BLACK') return player === 'CYAN' ? 'GOLD' : 'BLACK';
+    if (matchup === 'WHITE_RED') return player === 'CYAN' ? 'WHITE' : 'RED';
+    if (matchup === 'ORANGE_GREEN') return player === 'CYAN' ? 'ORANGE' : 'GREEN';
+    
+    // Default fallbacks
+    return player === 'CYAN' ? 'CLASSIC_CYAN' : 'CLASSIC_WHITE';
+  };
 
   return (
     <div className={`relative w-full max-w-[95vw] sm:max-w-2xl aspect-square backdrop-blur-3xl border rounded-3xl p-1.5 sm:p-3 shadow-2xl transition-all duration-500 ${themeClasses.outer}`}>
@@ -182,7 +224,14 @@ export default function Board({
                     }`}
                   />
                 )}
-                {piece && <Piece piece={piece} isSelected={isSelected} theme={theme} />}
+                {piece && (
+                  <Piece
+                    piece={piece}
+                    isSelected={isSelected}
+                    theme={theme}
+                    pieceStyle={getPieceDesign(piece.player, pieceStyle)}
+                  />
+                )}
               </div>
             );
           })

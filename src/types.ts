@@ -2,7 +2,7 @@ export type Player = 'CYAN' | 'WHITE';
 export type PieceType = 'MAN' | 'KING';
 export type GameMode = 'AI' | 'FRIEND';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
-export type BoardTheme = 'CLASSIC' | 'EMERALD' | 'GOLD' | 'ROYAL' | 'KURDISH_WOOD';
+export type BoardTheme = 'CLASSIC' | 'EMERALD' | 'GOLD' | 'ROYAL' | 'KURDISH_WOOD' | 'GOLD_BLACK' | 'BLUE_BROWN' | 'TOKYO_NEON' | 'COSMIC_VOID';
 
 export interface Piece {
   id: string;

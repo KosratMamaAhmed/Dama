@@ -50,7 +50,8 @@ export const TRANSLATIONS = {
 2. **جوڵە**: بەردی ئاسایی تەنها بۆ پێشەوە، چەپ و ڕاست دەڕوات. بۆ دواوە ناگەڕێتەوە.
 3. **خواردنی ناچاری**: ئەگەر دەرفەتی خواردنی بەرد هەبێت، خواردنەکە ناچارییە! ئەگەر بازدانی سێیەکی یان دووەمی هەبێت دەبێت بەردەوام بیت تا خواردن تەواو دەبێت.
 4. **شا (King)**: کاتێک بەردێک دەگاتە کۆتا ڕیز دەبێت بە (شا). شاهانەکان دەتوانن چەندین خانە بە هەر چوار لایەکدا بڕۆن و لە چەندین خانەی دوورەوە باز بدەن و بەرد بخۆن.
-5. **براوە**: ئەو لایەنەی هەموو بەردەکانی بەرامبەر دەخوات یان ڕێگری دەکات لە هەر جوڵەیەک، دەبێتە براوە.`
+5. **براوە**: ئەو لایەنەی هەموو بەردەکانی بەرامبەر دەخوات یان ڕێگری دەکات لە هەر جوڵەیەک، دەبێتە براوە.
+6. **ڕێسای کۆتا بەرد**: ئەگەر تەنها یەک بەردی یاریزانەکە مایەوە، بە شێوەیەکی خۆکارانە دەبێت بە (شا) و هەموو دەسەڵاتێکی جوڵانی دەبێت لە هەر کوێی یاریگە بێت.`
   },
   EN: {
     TITLE: 'Kurdish Dama',
@@ -99,7 +100,8 @@ export const TRANSLATIONS = {
 2. **Movements**: Normal pieces move strictly forwards, left, or right. No backward steps.
 3. **Mandatory Jump**: If a jump/capture is possible, you MUST capture. Multi-jumps must be completed.
 4. **Promotion**: Checking reaching the opponent end promotes to King. Kings can move and jump infinitely diagonally or orthogonally.
-5. **Winning**: Win by capturing all enemy pieces or blocking all their legal moves.`
+5. **Winning**: Win by capturing all enemy pieces or blocking all their legal moves.
+6. **Last Piece Rule**: If a player has only one piece left, it automatically promotes to a King with full movement capabilities, regardless of its position on the board.`
   },
   AR: {
     TITLE: 'الدامة الكردية',
@@ -148,6 +150,7 @@ export const TRANSLATIONS = {
 ٢. **الحركة**: يتحرك الحجر العادي للأمام، لليسار، ولليمين فقط. لا يمكن التراجع للخلف أبداً.
 ٣. **الأكل الإلزامي**: إذا كان هناك فرصة لأكل حجر الخصم، فالأكل إلزامي ومفروض عليك، وإذا كان هناك سلسلة قفزات مستمرة يجب إكمالها بالكامل.
 ٤. **الترقية**: عند وصول الحجر لآخر صف للخصم تتم ترقيته لـ (شاه/ملك). الشاه يتحرك بحرية في كل الاتجاهات بعدد غير محدود من الخانات.
-٥. **الفوز**: يفوز من يأكل جميع أحجار الخصم أو يحاصره ويمنعه من أي حركة قانونية.`
+٥. **الفوز**: يفوز من يأكل جميع أحجار الخصم أو يحاصره ويمنعه من أي حركة قانونية.
+٦. **قانون الحجر الأخير**: إذا تبقى حجر واحد فقط للاعب، تتم ترقيته تلقائياً ليصبح (شاة/ملك) ولديه كافة صلاحيات الحركة الكاملة أينما كان على الرقعة.`
   }
 };

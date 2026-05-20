@@ -108,6 +108,41 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           }
         }
 
+        // Check "Last piece becomes King" promotion for BOTH players
+        let cyanPieces: { r: number; c: number }[] = [];
+        let whitePieces: { r: number; c: number }[] = [];
+        for (let br = 0; br < 8; br++) {
+          for (let bc = 0; bc < 8; bc++) {
+            const p = newBoard[br][bc];
+            if (p) {
+              if (p.player === 'CYAN') cyanPieces.push({ r: br, c: bc });
+              else if (p.player === 'WHITE') whitePieces.push({ r: br, c: bc });
+            }
+          }
+        }
+
+        if (cyanPieces.length === 1) {
+          const { r: cr, c: cc } = cyanPieces[0];
+          const targetPiece = newBoard[cr][cc]!;
+          if (targetPiece.type !== 'KING') {
+            targetPiece.type = 'KING';
+            if (cr === r && cc === c) {
+              promoted = true;
+            }
+          }
+        }
+
+        if (whitePieces.length === 1) {
+          const { r: wr, c: wc } = whitePieces[0];
+          const targetPiece = newBoard[wr][wc]!;
+          if (targetPiece.type !== 'KING') {
+            targetPiece.type = 'KING';
+            if (wr === r && wc === c) {
+              promoted = true;
+            }
+          }
+        }
+
         // Multi-jump check
         if (move.type === 'jump' && !promoted) {
           const nextMoves = getMovesForPiece(newBoard, r, c);
