@@ -1,4 +1,4 @@
-import React, { useReducer, useState, useEffect, useRef } from 'react';
+import React, { useReducer, useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initialGameState, gameReducer } from './store/gameReducer';
 import Board from './components/Board';
@@ -81,6 +81,10 @@ export default function App() {
     }
     setScreenRaw(newScreen);
   };
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [screen]);
 
   const handleNavigateBack = () => {
     if (screenHistory.length > 0) {
@@ -181,6 +185,7 @@ export default function App() {
   const [coachHintSource, setCoachHintSource] = useState<{ r: number; c: number } | null>(null);
   const [coachHintDest, setCoachHintDest] = useState<{ r: number; c: number } | null>(null);
   const [coachHintMessage, setCoachHintMessage] = useState<string>('');
+  const [coachHintsLeft, setCoachHintsLeft] = useState<number>(5);
 
   // Match Replay state
   const [matchStateHistory, setMatchStateHistory] = useState<any[]>([]);
@@ -192,6 +197,11 @@ export default function App() {
   const [lobbyError, setLobbyError] = useState<string>('');
   const [lobbySuccess, setLobbySuccess] = useState<boolean>(false);
   const [typedRoomCode, setTypedRoomCode] = useState<string>('');
+
+  // Real-time multiplayer synchronization
+  const [isOnlineMatch, setIsOnlineMatch] = useState<boolean>(false);
+  const [onlineRole, setOnlineRole] = useState<'HOST' | 'GUEST' | null>(null);
+  const [incomingInvite, setIncomingInvite] = useState<{ sender: string; roomCode: string } | null>(null);
 
   // In-Game Chat / Floating Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: string; emoji: string; x: number; y: number }[]>([]);
@@ -214,6 +224,22 @@ export default function App() {
 
   const [hasRestored, setHasRestored] = useState(false);
   const [statsUpdated, setStatsUpdated] = useState(false);
+
+  // Compute other registered profiles for the interactive Lobby
+  const registeredUsers = useMemo<UserProfile[]>(() => {
+    const raw = localStorage.getItem('dama_users_db_v2');
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      if (currentUser) {
+        return parsed.filter((u: any) => u.username.toLowerCase() !== currentUser.username.toLowerCase());
+      }
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }, [currentUser]);
 
   // Restore saved session on mount (offline continuity support)
   useEffect(() => {
@@ -244,7 +270,16 @@ export default function App() {
 
   // Setup PWA install handlers and deep iOS checks on mount
   useEffect(() => {
+    const isStandalone = typeof window !== 'undefined' && (
+      (window.navigator && 'standalone' in window.navigator && (window.navigator as any).standalone) ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+    );
+
     const handleBeforePrompt = (e: any) => {
+      // If downloaded already, suppress Android prompt completely
+      if (isStandalone) {
+        return;
+      }
       e.preventDefault();
       setDeferredPrompt(e);
       setShowChromeInstall(true);
@@ -252,7 +287,6 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handleBeforePrompt);
 
     const isIosDevice = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isStandalone = typeof window !== 'undefined' && ('standalone' in window.navigator) && (window.navigator as any).standalone;
     if (isIosDevice && !isStandalone) {
       const timer = setTimeout(() => {
         setShowIosPrompt(true);
@@ -457,6 +491,183 @@ export default function App() {
     setCoachHintMessage('');
   }, [gameState.board, gameState.turn]);
 
+  // Listen to multiplayer messages over BroadcastChannel
+  useEffect(() => {
+    try {
+      const bc = new BroadcastChannel('dama_multiplayer_channel');
+      
+      bc.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+
+        // 1. Peer requests to join hosted room
+        if (data.type === 'PEER_JOIN_REQUEST') {
+          if (roomCode && data.roomCode === roomCode && onlineRole === 'HOST') {
+            setLobbySuccess(true);
+            setIsLobbySearching(false);
+            if (soundEnabled) {
+              try { playSound('win'); } catch(e){}
+            }
+            showNotification(lang === 'KU' ? `دیاری: ${data.guestUser} بەستراوەتەوە بە ژوورەکەت! ⚔️` : `Player ${data.guestUser} joined your room!`, 'success');
+            
+            // Send feedback back to the guest
+            bc.postMessage({
+              type: 'PEER_JOIN_ACCEPT',
+              roomCode: roomCode,
+              hostUser: currentUser?.username || 'Host Player'
+            });
+
+            // Start game in 1.2s
+            const rival = data.guestUser;
+            setTimeout(() => {
+              const myName = currentUser ? currentUser.username : 'یاریزان ١';
+              setPlayer1Name(`${myName} (You)`);
+              setPlayer2Name(`${rival} 🌐`);
+              setMode('FRIEND');
+              setIsOnlineMatch(true);
+              setScreen('PLAYING');
+              handleFullReset();
+            }, 1200);
+          }
+        }
+
+        // 2. Guest receives peer acceptance
+        if (data.type === 'PEER_JOIN_ACCEPT') {
+          if (roomCode && data.roomCode === roomCode && onlineRole === 'GUEST') {
+            setLobbySuccess(true);
+            setIsLobbySearching(false);
+            if (soundEnabled) {
+              try { playSound('win'); } catch(e){}
+            }
+            showNotification(lang === 'KU' ? `بە سەرکەوتوویی بەسترایتەوە لەگەڵ ${data.hostUser}! 🤝` : `Connected with ${data.hostUser}!`, 'success');
+
+            // Start game in 1.2s
+            const rival = data.hostUser;
+            setTimeout(() => {
+              const myName = currentUser ? currentUser.username : 'یاریزان ٢';
+              setPlayer1Name(`${rival} 🌐`);
+              setPlayer2Name(`${myName} (You)`);
+              setMode('FRIEND');
+              setIsOnlineMatch(true);
+              setScreen('PLAYING');
+              handleFullReset();
+            }, 1200);
+          }
+        }
+
+        // 3. Username Direct Invitation
+        if (data.type === 'USERNAME_INVITE_SEND') {
+          if (currentUser && data.targetUsername.toLowerCase() === currentUser.username.toLowerCase()) {
+            setIncomingInvite({
+              sender: data.senderUsername,
+              roomCode: data.roomCode
+            });
+            if (soundEnabled) {
+              try { playSound('select'); } catch(e){}
+            }
+          }
+        }
+
+        // 4. Accepting direct invitation callback
+        if (data.type === 'USERNAME_INVITE_ACCEPT') {
+          if (currentUser && data.senderUsername.toLowerCase() === currentUser.username.toLowerCase() && roomCode === data.roomCode) {
+            setLobbySuccess(true);
+            setIsLobbySearching(false);
+            showNotification(lang === 'KU' ? `بەکارهێنەر ${data.acceptorUsername} بانگهێشتەکەی قبوڵ کردیت! ⚔️` : `Player ${data.acceptorUsername} accepted the challenge!`, 'success');
+            
+            setTimeout(() => {
+              const myName = currentUser.username;
+              setPlayer1Name(`${myName} (You)`);
+              setPlayer2Name(`${data.acceptorUsername} 🌐`);
+              setMode('FRIEND');
+              setIsOnlineMatch(true);
+              setOnlineRole('HOST');
+              setScreen('PLAYING');
+              handleFullReset();
+            }, 1200);
+          }
+        }
+
+        // 5. Board sync
+        if (data.type === 'GAME_STATE_UPDATE') {
+          if (isOnlineMatch && data.roomCode === roomCode) {
+            dispatch({ type: 'HYDRATE_STATE', payload: data.gameState });
+            if (soundEnabled) {
+              try { playSound('move'); } catch(e){}
+            }
+          }
+        }
+
+        // 6. Floating emoji/chat messages sync
+        if (data.type === 'GAME_CHAT_SYNC') {
+          if (isOnlineMatch && data.roomCode === roomCode) {
+            if (data.msgType === 'emoji') {
+              setFloatingEmojis(prev => [...prev, {
+                id: Math.random().toString(),
+                emoji: data.content,
+                x: Math.floor(Math.random() * 240) - 120,
+                y: 0
+              }]);
+              if (soundEnabled) {
+                try { playSound('move'); } catch(e){}
+              }
+            } else if (data.msgType === 'text') {
+              setChatMessage({
+                sender: onlineRole === 'HOST' ? 'P2' : 'P1',
+                text: data.content,
+                id: Math.random().toString()
+              });
+              if (soundEnabled) {
+                try { playSound('move'); } catch(e){}
+              }
+            }
+          }
+        }
+
+        // 7. Rematch triggers
+        if (data.type === 'GAME_REMATCH_OFFER') {
+          if (isOnlineMatch && data.roomCode === roomCode) {
+            showNotification(lang === 'KU' ? `بەرامبەرەکەت داوای ململانێ سێتێکی نوێ دەکات! 🔄` : `Opponent wants a rematch!`, 'info');
+          }
+        }
+
+        if (data.type === 'GAME_REMATCH_ACCEPT') {
+          if (isOnlineMatch && data.roomCode === roomCode) {
+            showNotification(lang === 'KU' ? `یاریەکە نوێکرایەوە! سەرکەوتووبیت! 🏁` : `Match restarted!`, 'success');
+            dispatch({ type: 'RESET_GAME' });
+          }
+        }
+      };
+
+      return () => {
+        bc.close();
+      };
+    } catch(e) {}
+  }, [roomCode, onlineRole, isOnlineMatch, currentUser, soundEnabled, lang]);
+
+  // Sync game states over BroadcastChannel on movements
+  useEffect(() => {
+    if (isOnlineMatch && onlineRole && roomCode) {
+      // Determine if the transition change was made by us
+      const isMyMoveTransition = 
+        (onlineRole === 'HOST' && gameState.turn === 'WHITE') ||
+        (onlineRole === 'GUEST' && gameState.turn === 'CYAN');
+
+      if (isMyMoveTransition) {
+        try {
+          const bc = new BroadcastChannel('dama_multiplayer_channel');
+          bc.postMessage({
+            type: 'GAME_STATE_UPDATE',
+            roomCode: roomCode,
+            sender: currentUser?.username || 'Opponent',
+            gameState: gameState
+          });
+          bc.close();
+        } catch (e) {}
+      }
+    }
+  }, [gameState.board, gameState.turn, isOnlineMatch, onlineRole, roomCode]);
+
   // Keep track of board positions for the current match to feed the Replay system
   useEffect(() => {
     if (screen === 'PLAYING') {
@@ -475,6 +686,7 @@ export default function App() {
     dispatch({ type: 'RESET_GAME' });
     setSeconds(0);
     setMatchStateHistory([]);
+    setCoachHintsLeft(5);
   };
 
   const startGame = () => {
@@ -490,6 +702,21 @@ export default function App() {
     if (soundEnabled) {
       try { playSound('move'); } catch(e){}
     }
+
+    // Broadcast if online match is active
+    if (isOnlineMatch && roomCode) {
+      try {
+        const bc = new BroadcastChannel('dama_multiplayer_channel');
+        bc.postMessage({
+          type: 'GAME_CHAT_SYNC',
+          roomCode,
+          msgType: 'emoji',
+          content: emoji
+        });
+        bc.close();
+      } catch (e) {}
+    }
+
     setTimeout(() => {
       setFloatingEmojis((prev) => prev.filter((item) => item.id !== id));
     }, 2800);
@@ -502,6 +729,21 @@ export default function App() {
     if (soundEnabled) {
       try { playSound('move'); } catch(e){}
     }
+
+    // Broadcast if online match is active
+    if (isOnlineMatch && roomCode) {
+      try {
+        const bc = new BroadcastChannel('dama_multiplayer_channel');
+        bc.postMessage({
+          type: 'GAME_CHAT_SYNC',
+          roomCode,
+          msgType: 'text',
+          content: text
+        });
+        bc.close();
+      } catch (e) {}
+    }
+
     setTimeout(() => {
       setChatMessage((prev) => prev?.id === id ? null : prev);
     }, 4500);
@@ -509,40 +751,93 @@ export default function App() {
 
   // AI Hint Coach Evaluation
   const handleGetCoachHint = () => {
+    if (coachHintsLeft <= 0) {
+      showNotification(
+        lang === 'KU' 
+          ? 'تۆ لەم یارییەدا هەموو ٥ ئامۆژگارییەکەت بەکارهێناوە! ❌' 
+          : lang === 'AR'
+          ? 'لقد استخدمت جميع النصائح الـ 5 المتاحة لك! ❌'
+          : 'You has used all of your 5 hints for this match! ❌', 
+        'info'
+      );
+      return;
+    }
+
     // We evaluate using the AI engine
     const optimal = getAIMove(gameState.board, 'EXPERT', gameState.turn, gameState.mustJumpPos);
     if (optimal) {
       setCoachHintSource({ r: optimal.r, c: optimal.c });
       setCoachHintDest(optimal.dest);
+      setCoachHintsLeft((prev) => Math.max(0, prev - 1));
       
       const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       const textSrc = `${colLabels[optimal.c]}${8 - optimal.r}`;
       const textDest = `${colLabels[optimal.dest.c]}${8 - optimal.dest.r}`;
       
+      const movingPiece = gameState.board[optimal.r][optimal.c];
+      const isKing = movingPiece?.type === 'KING';
+      const isJump = Math.abs(optimal.dest.r - optimal.r) > 1 || Math.abs(optimal.dest.c - optimal.c) > 1;
+
       let msg = '';
       if (lang === 'KU') {
-        msg = `💡 ڕێبەری زیرەک پێشنیار دەکات: لێدان لە خانەی ${textSrc} بەرەو خانەی ئامانجی ${textDest}!`;
+        let analysis = 'شیکاریی لۆجیکی مێزەکە: جووڵەیەکی ستراتیژیی گونجاوە بۆ گرتنی فەزا گرنگەکان.';
+        if (isJump) {
+          analysis = 'خوێندنەوەی هێرشبەری: نەیارت ناچار کردووە زەبردەکێش بێت! لێدانێکی کوشندە و نایاب ئەنجام بدە! ⚔️';
+        } else if (isKing) {
+          analysis = 'سوود لە هێزی شا وەرگرە: شاکەت پێش بخە و تەواوی پلانەکەیان بە مەکڕ و توانستەوە پووچەڵ بکەرەوە! 👑';
+        } else if (optimal.dest.r === (gameState.turn === 'CYAN' ? 0 : 7)) {
+          analysis = 'پلان بەرەو تۆمارکردنی شا: ئەم پارچەیە بگەیەنە هێڵی کۆتایی بۆ ئەوەی ببێتە شا و فەرمانڕەوایی بکات! 🎗️';
+        } else {
+          analysis = 'کۆنتڕۆڵکردنی ناوەڕاستی تەختەکە: هاوسەنگییەکی بێوێنە لە نێوان بەرگری و سوپای پێشڕەودا دروست دەکات!';
+        }
+        msg = `🧠 زیرەکیی بێ‌وێنەی ڕێبەر: [${textSrc} ➔ ${textDest}] | ${analysis}`;
       } else if (lang === 'AR') {
-        msg = `💡 المدرب ينصحك باللعب: من خانة ${textSrc} إلى خانة الهدف ${textDest}!`;
+        let analysis = 'تحليل تكتيكي: حركة استراتيجية ممتازة توفر توازناً رائعاً في السيطرة.';
+        if (isJump) {
+          analysis = 'فرصة هجومية خارقة: التهام قطعة الخصم وإخراج توازنه الدفاعي عن مساره! ⚔️';
+        } else if (isKing) {
+          analysis = 'توظيف قوة الملك المذهلة: فرض السيطرة الكاملة على رقعة اللعب وتطويق هجماتهم! 👑';
+        } else {
+          analysis = 'تأمين الممرات الحيوية: تصرف تكتيكي يمنع هجمات الخصم المفاجئة من الأطراف!';
+        }
+        msg = `🧠 ذكاء المدرب الخارق: [${textSrc} ➔ ${textDest}] | ${analysis}`;
       } else {
-        msg = `💡 Coach recommends: Move piece from ${textSrc} to destination ${textDest}!`;
+        let analysis = 'Tactical masterpiece: This step secures vital central squares with optimized defense.';
+        if (isJump) {
+          analysis = 'Lethal strike: Deliver a crushing blow to their ranks and capture their defensive unit! ⚔️';
+        } else if (isKing) {
+          analysis = 'Emperor\'s rule: Elevate your King to dominate critical corridors and seal the game! 👑';
+        } else {
+          analysis = 'Positional control: Crafting a precise blockade against future opponent encroachment.';
+        }
+        msg = `🧠 Master Coach Intelligence: [${textSrc} ➔ ${textDest}] | ${analysis}`;
       }
+
       setCoachHintMessage(msg);
       if (soundEnabled) {
         try { playSound('move'); } catch(e){}
       }
+    } else {
+      showNotification(
+        lang === 'KU' 
+          ? 'هیچ پێشنیارێکی گونجاو لەم شوێنەدا بوونی نییە!' 
+          : 'No highly intelligent moves could be computed here!', 
+        'info'
+      );
     }
   };
 
   // Create real-time simulation Room Code
   const handleCreateRoom = () => {
-    setIsLobbySearching(true);
     setLobbyError('');
     setLobbySuccess(false);
     
     // Generate randomized code
-    const mockCode = Math.floor(1000 + Math.random() * 9000).toString();
-    setRoomCode(mockCode);
+    const generated = Math.floor(1000 + Math.random() * 9000).toString();
+    setRoomCode(generated);
+    setIsLobbySearching(true);
+    setOnlineRole('HOST');
+    setIsOnlineMatch(true);
   };
 
   // Join Room with a code
@@ -552,17 +847,103 @@ export default function App() {
       return;
     }
     setLobbyError('');
+    setIsLobbySearching(true);
+    setLobbySuccess(false);
     setRoomCode(typedRoomCode);
-    triggerPeerConnectionSim(); // Immediate feedback since they explicitly initiated connection!
+    setOnlineRole('GUEST');
+    setIsOnlineMatch(true);
+
+    try {
+      const bc = new BroadcastChannel('dama_multiplayer_channel');
+      // Broadcast peer join request
+      bc.postMessage({
+        type: 'PEER_JOIN_REQUEST',
+        roomCode: typedRoomCode,
+        guestUser: currentUser ? currentUser.username : (lang === 'KU' ? 'مێوانی کاتی' : 'Guest Player')
+      });
+      bc.close();
+    } catch (e) {}
+    
+    // Timeout fallback: If no matching host responds within 6 seconds, warn user
+    setTimeout(() => {
+      setIsLobbySearching((currentSearching) => {
+        if (currentSearching) {
+          setLobbyError(lang === 'KU' 
+            ? 'داوای بەستنەوە سەرکەوتوو نەبوو! دڵنیابە کە هاوڕێکەت ژووری دروستکردووە لە هەمان برۆوسەر/مۆبایل.' 
+            : 'Connection request timed out! Make sure your partner created a room first on the same browser context.');
+          return false;
+        }
+        return currentSearching;
+      });
+    }, 6000);
   };
 
-  // Explicitly simulate player joining (prevents automatic connection "لە خۆیەوە")
+  // Explicitly simulate player joining (keeps backward compatibility)
   const triggerPeerConnectionSim = () => {
     setIsLobbySearching(false);
     setLobbySuccess(true);
     if (soundEnabled) {
       try { playSound('win'); } catch(e){}
     }
+  };
+
+  const handleAcceptIncomingInvite = () => {
+    if (!incomingInvite) return;
+    setRoomCode(incomingInvite.roomCode);
+    setOnlineRole('GUEST');
+    setLobbySuccess(true);
+    
+    try {
+      const bc = new BroadcastChannel('dama_multiplayer_channel');
+      bc.postMessage({
+        type: 'USERNAME_INVITE_ACCEPT',
+        roomCode: incomingInvite.roomCode,
+        senderUsername: incomingInvite.sender,
+        acceptorUsername: currentUser?.username || 'Guest Player'
+      });
+      bc.close();
+    } catch(e) {}
+
+    showNotification(lang === 'KU' ? `داواکاریەکە قبوڵ کرا! بەیەکەوە بەسترانەوە 🎉` : `Invite accepted! Connected 🎉`, 'success');
+    
+    // Game starts in 1.2s
+    const rivalName = incomingInvite.sender;
+    setIncomingInvite(null);
+
+    setTimeout(() => {
+      const myName = currentUser ? currentUser.username : 'یاریزان ٢';
+      setPlayer1Name(`${rivalName} 🔵`);
+      setPlayer2Name(`${myName} (You) 🔴`);
+      setMode('FRIEND');
+      setIsOnlineMatch(true);
+      setScreen('PLAYING');
+      handleFullReset();
+    }, 1200);
+  };
+
+  const handleSendInviteToUser = (targetProfile: UserProfile) => {
+    if (!currentUser) {
+      showNotification(lang === 'KU' ? 'تکایە سەرەتا بچۆ ژوورەوە!' : 'Please log in first!', 'error');
+      return;
+    }
+    const generated = Math.floor(1000 + Math.random() * 9000).toString();
+    setRoomCode(generated);
+    setOnlineRole('HOST');
+    setIsLobbySearching(true);
+    setLobbySuccess(false);
+
+    try {
+      const bc = new BroadcastChannel('dama_multiplayer_channel');
+      bc.postMessage({
+        type: 'USERNAME_INVITE_SEND',
+        targetUsername: targetProfile.username,
+        senderUsername: currentUser.username,
+        roomCode: generated
+      });
+      bc.close();
+    } catch (e) {}
+
+    showNotification(lang === 'KU' ? `ناردنی بانگهێشت بۆ @${targetProfile.username} سەرکەوتووبوو! ⚔️` : `Challenged @${targetProfile.username}! ⚔️`, 'info');
   };
 
   const handleStartLobbyMatch = () => {
@@ -787,25 +1168,29 @@ export default function App() {
             </div>
 
             {/* Direct Play Action Modules - Beautiful Upgrade (More Compact and Sleek) */}
-            <div className="w-full space-y-3 shrink-0">
+            <div className="w-full space-y-3 shrink-0" dir={isRtl ? 'rtl' : 'ltr'}>
               <button
                 onClick={() => {
                   setMode('AI');
                   setScreen('SETUP_AI');
                 }}
-                className="relative group w-full flex items-center justify-between p-3.5 bg-black/40 hover:bg-black/60 border border-cyan-500/30 hover:border-cyan-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer"
+                className="relative group w-full flex items-center justify-center min-h-[72px] p-4 bg-black/45 hover:bg-black/65 border border-cyan-500/30 hover:border-cyan-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer text-center"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative flex items-center space-x-3.5 space-x-reverse">
-                  <div className="p-2.5 bg-cyan-950/80 border border-cyan-400/40 rounded-lg text-cyan-400 group-hover:scale-105 group-hover:bg-cyan-400 group-hover:text-slate-900 transition-all duration-300 shadow-inner">
-                    <Cpu className="w-5 h-5 sm:w-5 sm:h-5" />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm sm:text-base font-black text-white drop-shadow-md">{dict.PLAY_AI}</p>
-                    <p className="text-[10px] text-white/50 tracking-wide mt-0.5">{dict.EASY} • {dict.MEDIUM} • {dict.HARD}</p>
-                  </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                
+                {/* Icon wrapper - pinned absolutely to the right side */}
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-cyan-950/80 border border-cyan-400/40 rounded-lg text-cyan-400 group-hover:scale-105 group-hover:bg-cyan-400 group-hover:text-slate-900 transition-all duration-300 shrink-0 select-none">
+                  <Cpu className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-cyan-400 transition-colors relative" />
+
+                {/* Subtext/Main text - beautifully centered and offset to prevent clashing */}
+                <div className="px-16 sm:px-20 w-full text-center flex flex-col items-center justify-center">
+                  <p className="text-sm sm:text-base font-black text-white drop-shadow-md leading-tight">{dict.PLAY_AI}</p>
+                  <p className="text-[10px] text-white/50 tracking-wide mt-1 leading-none">{dict.EASY} • {dict.MEDIUM} • {dict.HARD}</p>
+                </div>
+
+                {/* Chevron ornament - pinned absolutely to the left side */}
+                <ChevronRight className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-hover:text-cyan-400 transition-colors pointer-events-none ${isRtl ? '' : 'rotate-180'}`} />
               </button>
 
               <button
@@ -813,19 +1198,23 @@ export default function App() {
                   setMode('FRIEND');
                   setScreen('SETUP_FRIEND');
                 }}
-                className="relative group w-full flex items-center justify-between p-3.5 bg-black/40 hover:bg-black/60 border border-indigo-500/30 hover:border-indigo-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer"
+                className="relative group w-full flex items-center justify-center min-h-[72px] p-4 bg-black/45 hover:bg-black/65 border border-indigo-500/30 hover:border-indigo-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer text-center"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative flex items-center space-x-3.5 space-x-reverse">
-                  <div className="p-2.5 bg-indigo-950/80 border border-indigo-400/40 rounded-lg text-indigo-400 group-hover:scale-105 group-hover:bg-indigo-400 group-hover:text-slate-900 transition-all duration-300 shadow-inner">
-                    <Users className="w-5 h-5 sm:w-5 sm:h-5" />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm sm:text-base font-black text-white drop-shadow-md">{dict.PLAY_FRIEND}</p>
-                    <p className="text-[10px] text-white/50 tracking-wide mt-0.5">Local Pass & Play</p>
-                  </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                
+                {/* Icon wrapper - pinned absolutely to the right side */}
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-indigo-950/80 border border-indigo-400/40 rounded-lg text-indigo-400 group-hover:scale-105 group-hover:bg-indigo-400 group-hover:text-slate-900 transition-all duration-300 shrink-0 select-none">
+                  <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-indigo-400 transition-colors relative" />
+
+                {/* Subtext/Main text - beautifully centered and offset */}
+                <div className="px-16 sm:px-20 w-full text-center flex flex-col items-center justify-center">
+                  <p className="text-sm sm:text-base font-black text-white drop-shadow-md leading-tight">{dict.PLAY_FRIEND}</p>
+                  <p className="text-[10px] text-white/50 tracking-wide mt-1 leading-none">Local Pass & Play</p>
+                </div>
+
+                {/* Chevron ornament - pinned absolutely to the left side */}
+                <ChevronRight className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-hover:text-indigo-400 transition-colors pointer-events-none ${isRtl ? '' : 'rotate-180'}`} />
               </button>
 
               {/* ONLINE LOBBY SYSTEM BUTTON */}
@@ -839,19 +1228,23 @@ export default function App() {
                     setScreen('LOBBY');
                     handleCreateRoom(); // Prepare dummy host room key instantly
                   }}
-                  className="relative group w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-950/20 to-yellow-950/10 hover:from-amber-950/40 hover:to-yellow-905/20 border border-yellow-600/30 hover:border-yellow-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer"
+                  className="relative group w-full flex items-center justify-center min-h-[72px] p-4 bg-gradient-to-r from-amber-950/30 to-yellow-950/20 hover:from-amber-950/50 hover:to-yellow-950/30 border border-yellow-600/35 hover:border-yellow-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer text-center"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative flex items-center space-x-3.5 space-x-reverse">
-                    <div className="p-2.5 bg-amber-950 border border-amber-500/40 rounded-lg text-amber-400 group-hover:scale-105 group-hover:bg-amber-550 group-hover:text-amber-950 transition-all duration-300 shadow-inner">
-                      <Globe className="w-5 h-5 sm:w-5 sm:h-5" />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm sm:text-base font-black text-amber-200 drop-shadow-md">{(dict as any).LOBBY_ROOM}</p>
-                      <p className="text-[10px] text-amber-200/50 tracking-wide mt-0.5">Online Matchmaking & Lobby</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-amber-400/50 group-hover:text-amber-400 transition-colors relative" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  
+                  {/* Icon wrapper - pinned absolutely to the right side */}
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-amber-950 border border-amber-500/40 rounded-lg text-amber-400 group-hover:scale-105 group-hover:bg-amber-550 group-hover:text-amber-950 transition-all duration-300 shrink-0 select-none">
+                    <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </span>
+
+                  {/* Subtext/Main text - beautifully centered and offset */}
+                  <span className="px-16 sm:px-20 w-full text-center flex flex-col items-center justify-center block">
+                    <p className="text-sm sm:text-base font-black text-amber-200 drop-shadow-md leading-tight">{(dict as any).LOBBY_ROOM}</p>
+                    <p className="text-[10px] text-amber-200/50 tracking-wide mt-1 leading-none">Online Matchmaking & Lobby</p>
+                  </span>
+
+                  {/* Chevron ornament - pinned absolutely to the left side */}
+                  <ChevronRight className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/30 group-hover:text-amber-400 transition-colors pointer-events-none ${isRtl ? '' : 'rotate-180'}`} />
                 </button>
               )}
             </div>
@@ -1325,7 +1718,7 @@ export default function App() {
                   initial={{ opacity: 0, y: -20, scale: 0.9 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                  className="w-full max-w-md bg-gradient-to-r from-amber-950 via-yellow-950 to-amber-950 border border-amber-400/40 rounded-2xl p-3 text-center text-xs text-amber-100 shadow-[0_4px_20px_rgba(245,158,11,0.25)] flex items-center justify-center space-x-2 space-x-reverse z-30 font-sans"
+                  className="w-full max-w-md bg-gradient-to-r from-amber-955 via-yellow-950 to-amber-955 border border-amber-400/40 rounded-2xl p-3 text-center text-xs text-amber-100 shadow-[0_4px_20px_rgba(245,158,11,0.25)] flex items-center justify-center space-x-2 space-x-reverse z-30 font-sans"
                 >
                   <span className="text-base">💡</span>
                   <span className="font-bold leading-relaxed">{coachHintMessage}</span>
@@ -1334,9 +1727,9 @@ export default function App() {
             </AnimatePresence>
 
             {/* Action Bar: Timer, AI level pill, and AI Hint control in active play */}
-            <div className="w-full flex justify-between items-center px-2 shrink-0">
+            <div className="w-full flex justify-between items-center px-2 shrink-0 select-none z-20">
               <div className="flex items-center space-x-1.5 space-x-reverse">
-                <div className="flex items-center space-x-1.5 space-x-reverse bg-black/40 border border-white/5 py-1 px-3 rounded-full text-xs font-bold">
+                <div className="flex items-center space-x-1.5 space-x-reverse bg-black/40 border border-white/5 py-1 px-3 rounded-full text-xs font-bold text-white">
                   <Clock className="w-3.5 h-3.5 text-cyan-400" />
                   <span className="font-mono">{formatTime(seconds)}</span>
                 </div>
@@ -1365,53 +1758,89 @@ export default function App() {
               </div>
               
               <button
+                disabled={coachHintsLeft <= 0}
                 onClick={handleGetCoachHint}
-                className="flex items-center space-x-1.5 space-x-reverse bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 hover:border-amber-300 text-amber-200 hover:text-white px-4 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 shadow-[0_0_12px_rgba(245,158,11,0.2)] cursor-pointer"
+                className={`flex items-center space-x-1.5 space-x-reverse border px-4 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 shadow-[0_0_12px_rgba(245,158,11,0.2)] cursor-pointer ${
+                  coachHintsLeft <= 0 
+                  ? 'bg-slate-800/45 border-slate-700/50 text-slate-500 cursor-not-allowed opacity-55' 
+                  : 'bg-amber-500/20 hover:bg-amber-500/35 border-amber-400/50 hover:border-amber-300 text-amber-200 hover:text-white'
+                }`}
               >
-                <span>{(dict as any).HINT_BTN}</span>
+                <span>
+                  {lang === 'KU' 
+                    ? `ئامۆژگاری زیرەک 💡 (${coachHintsLeft}/5)` 
+                    : lang === 'AR' 
+                    ? `إرشاد ذكي 💡 (${coachHintsLeft}/5)` 
+                    : `Smart Hint 💡 (${coachHintsLeft}/5)`}
+                </span>
               </button>
             </div>
 
-            {/* Top Avatar (Player 1 / Cyan / "ناوی یەکەم") */}
-            <div className="w-full flex justify-center relative">
-              {/* Speech Bubble for P1 */}
+            {/* Top Avatar (Player 2 / White / Opponent / AI) - Styled to reflect White stone color */}
+            <div className="w-full flex items-center justify-center gap-2 sm:gap-4 relative select-none">
+              {/* Speech Bubble for P2 */}
               <AnimatePresence>
-                {chatMessage?.sender === 'CYAN' && (
+                {chatMessage?.sender === 'WHITE' && (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.8 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.8 }}
-                    className="absolute bottom-16 bg-gradient-to-br from-cyan-900 to-indigo-950 border border-cyan-400/30 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-2xl shadow-xl z-50 flex items-center space-x-1 max-w-[200px]"
+                    className="absolute bottom-16 bg-gradient-to-br from-stone-900 to-amber-950 border border-amber-500/30 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-2xl shadow-xl z-50 flex items-center space-x-1 max-w-[200px]"
                   >
                     <span>{chatMessage.text}</span>
-                    <div className="absolute left-[50%] -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-indigo-950 border-r border-b border-cyan-400/30 rotate-45" />
+                    <div className="absolute left-[50%] -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-stone-900 border-r border-b border-amber-500/30 rotate-45" />
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              <div className={`px-4 sm:px-6 py-1.5 rounded-2xl border-2 transition-all duration-300 flex items-center space-x-3 sm:space-x-4 space-x-reverse ${
-                gameState.turn === 'CYAN' && !gameState.winner
-                  ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_25px_rgba(34,211,238,0.3)] scale-105' 
-                  : 'bg-black/20 border-transparent opacity-60'
+ 
+              {/* AI Badge Details Card with corresponding Turn Glow */}
+              <div className={`px-3.5 py-2 rounded-2xl border-2 transition-all duration-300 flex items-center space-x-2.5 sm:space-x-3.5 space-x-reverse ${
+                gameState.turn === 'WHITE' && !gameState.winner
+                  ? 'bg-white/10 border-white shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105' 
+                  : 'bg-black/20 border-transparent opacity-80'
               }`}>
-                <div className={`text-4xl sm:text-5xl ${gameState.turn === 'CYAN' && !gameState.winner ? 'animate-bounce' : ''}`}>👴🏻</div>
+                <div className={`text-3xl sm:text-4xl ${gameState.turn === 'WHITE' && !gameState.winner ? 'animate-bounce' : ''}`}>👴🏽</div>
                 <div className="text-right">
-                  <p className="font-black text-lg sm:text-xl text-cyan-400 leading-tight">{p1}</p>
-                  <div className="flex items-center justify-end space-x-1 space-x-reverse mt-0.5">
-                    <span className="w-3 h-3 rounded-full bg-slate-300 shadow-sm border border-slate-400/50 block"></span>
-                    <span className="text-xs font-bold text-cyan-200/70 ml-1 font-mono">x{cyanCaptures}</span>
-                  </div>
+                  <span className="text-[10px] sm:text-xs font-bold text-white/50 block select-none">
+                    {lang === 'KU' ? 'زیرەکی دەستکرد 🤖' : lang === 'AR' ? 'الذكاء الاصطناعي 🤖' : 'Artificial Intelligence 🤖'}
+                  </span>
+                  <p className="font-black text-md sm:text-lg text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.65)] leading-tight mt-0.5">{p2}</p>
+                </div>
+              </div>
+
+              {/* AI Eaten Stones (Cyan stones eaten by the AI) - Aligned nicely in a small row next to it */}
+              <div className="flex flex-col items-start gap-0.5 p-2 bg-cyan-950/25 border border-cyan-400/10 rounded-xl max-w-[130px] shrink-0">
+                <span className="text-[8px] sm:text-[9px] font-black text-cyan-300/60 uppercase select-none">
+                  {lang === 'KU' ? `خواراوە (x${whiteCaptures})` : `Eaten (x${whiteCaptures})`}
+                </span>
+                <div className="flex flex-wrap gap-[3px] max-w-[85px] justify-start content-center">
+                  {Array.from({ length: 16 }).map((_, i) => (
+                    <span 
+                      key={i} 
+                      className={`w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full border transition-all duration-300 ${
+                        i < whiteCaptures 
+                          ? 'bg-cyan-400 border-cyan-200 shadow-[0_0_4px_rgba(34,211,238,0.7)] scale-100 animate-pulse' 
+                          : 'bg-stone-800/40 border-cyan-500/5 scale-75 opacity-10'
+                      }`} 
+                    />
+                  ))}
                 </div>
               </div>
             </div>
-
+ 
             {/* Playable Checkers board area */}
             <div className="w-full flex justify-center flex-none">
               <Board 
                 gameState={gameState} 
                 dispatch={dispatch} 
                 theme={theme} 
-                disabled={mode === 'AI' && gameState.turn === 'WHITE'}
+                disabled={
+                  (mode === 'AI' && gameState.turn === 'WHITE') ||
+                  (isOnlineMatch && (
+                    (onlineRole === 'HOST' && gameState.turn !== 'CYAN') ||
+                    (onlineRole === 'GUEST' && gameState.turn !== 'WHITE')
+                  ))
+                }
                 p1Name={p1}
                 p2Name={p2}
                 onRestart={handleFullReset}
@@ -1422,39 +1851,59 @@ export default function App() {
                 pieceStyle={pieceFlag}
               />
             </div>
-
-            {/* Bottom Avatar (Player 2 / White / "ناوی دووەم") */}
-            <div className="w-full flex justify-center relative">
-              {/* Speech Bubble for P2 */}
+ 
+            {/* Bottom Avatar (Player 1 / Cyan / User) - Styled with Cyan color to match Cyan stones and Skilled Avatar 🥷🏽 */}
+            <div className="w-full flex items-center justify-center gap-2 sm:gap-4 relative select-none">
+              {/* Speech Bubble for P1 */}
               <AnimatePresence>
-                {chatMessage?.sender === 'WHITE' && (
+                {chatMessage?.sender === 'CYAN' && (
                   <motion.div
                     initial={{ opacity: 0, y: -10, scale: 0.8 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.8 }}
-                    className="absolute top-16 bg-gradient-to-br from-stone-900 to-amber-950 border border-amber-500/30 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-2xl shadow-xl z-50 flex items-center space-x-1 max-w-[200px]"
+                    className="absolute top-16 bg-gradient-to-br from-cyan-900 to-indigo-950 border border-cyan-400/30 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-2xl shadow-xl z-50 flex items-center space-x-1 max-w-[200px]"
                   >
                     <span>{chatMessage.text}</span>
-                    <div className="absolute left-[50%] -top-1.5 -translate-x-1/2 w-3 h-3 bg-stone-900 border-l border-t border-amber-500/30 rotate-45" />
+                    <div className="absolute left-[50%] -top-1.5 -translate-x-1/2 w-3 h-3 bg-indigo-950 border-l border-t border-cyan-400/30 rotate-45" />
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              <div className={`px-4 sm:px-6 py-1.5 rounded-2xl border-2 transition-all duration-300 flex items-center justify-between space-x-3 sm:space-x-4 space-x-reverse ${
-                gameState.turn === 'WHITE' && !gameState.winner
-                  ? 'bg-white/10 border-white/40 shadow-[0_0_25px_rgba(255,255,255,0.2)] scale-105' 
-                  : 'bg-black/20 border-transparent opacity-60'
+ 
+              {/* User Badge Details Card with corresponding Turn Glow */}
+              <div className={`px-3.5 py-2 rounded-2xl border-2 transition-all duration-300 flex items-center space-x-2.5 sm:space-x-3.5 space-x-reverse ${
+                gameState.turn === 'CYAN' && !gameState.winner
+                  ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.25)] scale-105' 
+                  : 'bg-black/20 border-transparent opacity-80'
               }`}>
-                <div className="text-left">
-                  <p className="font-black text-lg sm:text-xl text-slate-100 leading-tight">{p2}</p>
-                  <div className="flex items-center space-x-1 space-x-reverse mt-0.5">
-                    <span className="w-3 h-3 rounded-full bg-cyan-500 shadow-sm border border-cyan-400/50 block"></span>
-                    <span className="text-xs font-bold text-slate-300/70 mr-1 font-mono">x{whiteCaptures}</span>
-                  </div>
+                <div className={`text-3xl sm:text-4xl ${gameState.turn === 'CYAN' && !gameState.winner ? 'animate-bounce' : ''}`}>🥷🏽</div>
+                <div className="text-right">
+                  <span className="text-[10px] sm:text-xs font-bold text-cyan-400/60 block select-none">
+                    {lang === 'KU' ? 'بەکارهێنەر 👤' : lang === 'AR' ? 'المستخدم 👤' : 'User 👤'}
+                  </span>
+                  <p className="font-black text-md sm:text-lg text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.65)] leading-tight mt-0.5">{p1}</p>
                 </div>
-                <div className={`text-4xl sm:text-5xl ${gameState.turn === 'WHITE' && !gameState.winner ? 'animate-bounce' : ''}`}>👴🏽</div>
+              </div>
+
+              {/* User Eaten Stones (White stones eaten by the User) - Aligned nicely in a small row next to it */}
+              <div className="flex flex-col items-start gap-0.5 p-2 bg-stone-900/40 border border-stone-100/10 rounded-xl max-w-[130px] shrink-0">
+                <span className="text-[8px] sm:text-[9px] font-black text-stone-300/60 uppercase select-none">
+                  {lang === 'KU' ? `خواراوە (x${cyanCaptures})` : `Eaten (x${cyanCaptures})`}
+                </span>
+                <div className="flex flex-wrap gap-[3px] max-w-[85px] justify-start content-center">
+                  {Array.from({ length: 16 }).map((_, i) => (
+                    <span 
+                      key={i} 
+                      className={`w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full border transition-all duration-300 ${
+                        i < cyanCaptures 
+                          ? 'bg-slate-100 border-white shadow-[0_0_4px_rgba(255,255,255,0.7)] scale-100 animate-pulse' 
+                          : 'bg-stone-800/40 border-white/5 scale-75 opacity-10'
+                      }`} 
+                    />
+                  ))}
+                </div>
               </div>
             </div>
+
 
             {/* Collapsible Local Emojis & Quick Chat Panel for active screen */}
             <div className="w-full bg-black/40 border border-white/10 rounded-2xl p-2.5 sm:p-3 space-y-2 select-none shrink-0 z-30 font-sans">
@@ -1619,15 +2068,16 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="z-10 flex flex-col w-full max-w-md px-6 pt-4 space-y-6 shrink-0 relative"
+            className="z-10 flex flex-col w-full max-w-md px-6 pt-4 space-y-6 shrink-0 relative text-right"
+            dir="rtl"
           >
             {/* Header */}
-            <div className="flex items-center space-x-4 space-x-reverse mb-2">
+            <div className="flex items-center space-x-4 space-x-reverse mb-2 justify-start">
               <button 
                 onClick={() => setScreen('HOME')} 
                 className="p-3 bg-white/5 hover:bg-white/10 rounded-xl backdrop-blur-md border border-white/10 transition-colors cursor-pointer text-white"
               >
-                <ChevronRight className={`w-5 h-5 ${isRtl ? '' : 'rotate-180'}`} />
+                <ChevronRight className={`w-5 h-5`} />
               </button>
               <h2 className="text-3xl font-black text-amber-400">{(dict as any).LOBBY_ROOM} 🌐</h2>
             </div>
@@ -1636,11 +2086,11 @@ export default function App() {
             <div className="bg-black/40 border border-white/10 p-5 rounded-3xl space-y-5 backdrop-blur-xl">
               <div className="text-right space-y-1">
                 <p className="text-xs tracking-wider text-cyan-400 uppercase font-black">
-                  {lang === 'KU' ? 'لۆبی و بانگهێشتی هاوڕێیان' : 'Lobby & Friend Invites'}
+                  {lang === 'KU' ? 'لۆبی و ململانێی ڕاستەقینە' : 'Lobby & Matchmaking'}
                 </p>
                 <p className="text-xs text-white/60 leading-relaxed font-bold">
                   {lang === 'KU' 
-                    ? 'ڕووبەری پێک بەستنی راستەوخۆی یاریزانان لە رێگەی وەرگرتن یان ناردنی کۆدی کورت' 
+                    ? 'ڕووبەری پێک بەستنی راستەوخۆی یاریزانان لە ڕێگەی کۆدی تایبەت یان ناردنی بانگهێشتی ڕاستەوخۆ' 
                     : 'Establish cross-player direct connections using shared room invite codes.'}
                 </p>
               </div>
@@ -1648,56 +2098,52 @@ export default function App() {
               {/* Box 1: Host Room */}
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-3">
                 <span className="text-[11px] font-bold text-amber-300 block text-right">
-                  {lang === 'KU' ? '١. ژوور دروست بکە و کۆد دابەش بکە:' : '1. Create Room & Share Code:'}
+                  {lang === 'KU' ? '١. ژوور دروست بکە و کۆد بۆ هاوڕێکەت بنێرە:' : '1. Create Room & Share Code:'}
                 </span>
+
+                <p className="text-[11px] text-white/50 leading-relaxed leading-normal font-medium text-right bg-white/5 p-2 rounded-lg">
+                  💡 {lang === 'KU' 
+                    ? 'ئەم کۆدەی خوارەوە بۆ برادەرەکەت بنێرە تاوەکو لە مۆبایلەکەی خۆی لە بەشی چوونەژوور بنووسێت.' 
+                    : 'Send the code below to your friend to write in their enter section.'}
+                </p>
 
                 <div className="flex items-center justify-between bg-black/30 border border-white/10 p-3 rounded-xl">
                   <div className="text-right">
-                    <span className="text-[10px] text-white/40 block">Room Invite Code</span>
-                    <span className="text-2xl font-black text-white font-mono tracking-widest">{roomCode || '----'}</span>
+                    <span className="text-[10px] text-white/40 block font-mono">Room Invite Code</span>
+                    <span className="text-2xl font-black text-cyan-300 font-mono tracking-widest">{roomCode || '----'}</span>
                   </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(roomCode);
-                    }}
-                    className="p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg text-xs font-bold active:scale-95 cursor-pointer font-sans"
-                  >
-                    {lang === 'KU' ? 'لەبەرگرتنەوە' : 'Copy'}
-                  </button>
+                  {roomCode && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(roomCode);
+                        showNotification(lang === 'KU' ? 'کۆدەکە کۆپی کرا! 📋' : 'Code copied to clipboard!', 'info');
+                      }}
+                      className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg text-xs font-black active:scale-95 cursor-pointer font-sans"
+                    >
+                      {lang === 'KU' ? 'کۆپیکردن' : 'Copy'}
+                    </button>
+                  )}
                 </div>
 
                 {isLobbySearching ? (
-                  <div className="flex flex-col items-center space-y-2.5 justify-center py-2 bg-black/20 border border-white/5 p-3 rounded-xl mt-1">
-                    <div className="flex items-center space-x-2 space-x-reverse text-xs text-cyan-300/80">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span className="font-bold">{lang === 'KU' ? 'چاوەڕێی هاوڕێتین بۆ بەستنەوە...' : 'Waiting for guest player to join...'}</span>
+                  <div className="flex flex-col items-center space-y-2.5 justify-center py-3 bg-cyan-950/20 border border-cyan-500/20 p-3 rounded-xl mt-1">
+                    <div className="flex items-center space-x-2 space-x-reverse text-xs text-cyan-300 font-bold">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                      <span>{lang === 'KU' ? 'چاوەڕێی هاوڕێتین بۆ بەستنەوە...' : 'Waiting for opponent to connect...'}</span>
                     </div>
-                    
-                    <button
-                      onClick={triggerPeerConnectionSim}
-                      className="text-[11px] font-black bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-200 py-1.5 px-3.5 rounded-xl transition-all cursor-pointer active:scale-95 shadow-md flex items-center space-x-1.5 space-x-reverse"
-                    >
-                      <span>👤 {lang === 'KU' ? 'تاقیکردنەوە: بەستنەوەی یاریزانی دووەم' : 'Test: Connect Second Player'}</span>
-                    </button>
                   </div>
                 ) : lobbySuccess ? (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-center space-y-2">
+                  <div className="bg-emerald-500/15 border border-emerald-500/30 p-3 rounded-xl text-center space-y-2 animate-bounce">
                     <p className="text-xs text-emerald-300 font-bold">
-                      🎉 {lang === 'KU' ? 'یاریزانەکەی تر بەستراوەتەوە!' : 'Peer player connected successfully!'}
+                      🎉 {lang === 'KU' ? 'قبوڵ کرا! یاری دەستپێدەکات...' : 'Accepted! Game is starting...'}
                     </p>
-                    <button
-                      onClick={handleStartLobbyMatch}
-                      className="w-full bg-emerald-500 text-slate-900 py-2 rounded-lg text-xs font-black transition-all hover:bg-emerald-400 active:scale-95 cursor-pointer"
-                    >
-                      {lang === 'KU' ? 'دەستپێکردنی یاری ▶' : 'Begin Match ▶'}
-                    </button>
                   </div>
                 ) : (
                   <button
                     onClick={handleCreateRoom}
-                    className="w-full bg-white/5 hover:bg-white/10 border border-white/10 py-2 text-xs font-bold rounded-xl active:scale-95 text-white cursor-pointer"
+                    className="w-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 py-2.5 text-xs font-black text-amber-200 rounded-xl active:scale-95 transition-all cursor-pointer"
                   >
-                    {lang === 'KU' ? 'دروستکردنی کۆد' : 'Create Room Code'}
+                    {lang === 'KU' ? 'دروستکردنی ژووری نوێ' : 'Generate Room Code'}
                   </button>
                 )}
               </div>
@@ -1707,6 +2153,12 @@ export default function App() {
                 <span className="text-[11px] font-bold text-cyan-300 block text-right">
                   {lang === 'KU' ? '٢. چوونەژوورە بە نووسینی کۆد:' : '2. Enter Shared Invite Code:'}
                 </span>
+
+                <p className="text-[11px] text-white/50 leading-relaxed font-medium text-right">
+                  📋 {lang === 'KU' 
+                    ? 'کۆدەکە لە هاوڕێکەت وەربگرە لێرە بینووسە بۆ دەستپێکردنی ململانێ.' 
+                    : 'Get the invite code from your partner and enter it below.'}
+                </p>
 
                 <div className="flex space-x-2 space-x-reverse">
                   <input
@@ -1720,7 +2172,11 @@ export default function App() {
                   <button
                     disabled={typedRoomCode.length < 4 || isLobbySearching}
                     onClick={handleJoinRoom}
-                    className="bg-cyan-500 text-slate-950 px-5 rounded-xl font-bold text-xs hover:bg-cyan-400 transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:pointer-events-none"
+                    className={`px-5 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:pointer-events-none ${
+                      typedRoomCode.length < 4 || isLobbySearching
+                        ? 'bg-white/5 text-white/40 border border-white/5'
+                        : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.4)] font-black animate-pulse hover:animate-none'
+                    }`}
                   >
                     {lang === 'KU' ? 'پێک بەستن' : 'Connect'}
                   </button>
@@ -1731,48 +2187,47 @@ export default function App() {
                 )}
               </div>
 
-              {/* Box 3: Auto Matchmaking */}
-              <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 p-4 rounded-2xl space-y-3">
+              {/* Box 3: Registered Online Users challenge - highly realistic */}
+              <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-3">
                 <span className="text-[11px] font-bold text-indigo-300 block text-right">
-                  {lang === 'KU' ? '٣. گەڕانی خۆکار بۆ یاریزانی ئۆنلاین:' : '3. Auto-Match with Online Players:'}
+                  {lang === 'KU' ? '٣. مەکۆی یاریزانانی بەردەست:' : '3. Registered Challenger Circle:'}
                 </span>
 
-                <button
-                  onClick={() => {
-                    const mockNames = ['Barzan_22', 'Ramyar99', 'Sima_Krd', 'PeshawaMaster', 'Alan_Hawler'];
-                    setShowAutoMatch(true);
-                    setFoundPlayers([]);
-                    
-                    setTimeout(() => {
-                      setFoundPlayers([{id: '1', name: mockNames[0], avatar: '🤠'}]);
-                    }, 1000);
-                    setTimeout(() => {
-                      setFoundPlayers(p => [...p, {id: '2', name: mockNames[1], avatar: '😎'}]);
-                    }, 2500);
-                    setTimeout(() => {
-                      const finalId = '3';
-                      setFoundPlayers(p => [...p, {id: finalId, name: mockNames[2], avatar: '🤩'}]);
-                      setAutoMatchTarget(finalId);
-                      
-                      setTimeout(() => {
-                        setPlayer1Name(`${currentUser ? currentUser.username : 'تۆ'} (You)`);
-                        setPlayer2Name(`${mockNames[2]} 🌐`);
-                        setShowAutoMatch(false);
-                        triggerPeerConnectionSim();
-                      }, 1500);
-                    }, 4000);
-                  }}
-                  className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-200 py-3 rounded-xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.15)] flex justify-center items-center space-x-2 space-x-reverse"
-                >
-                  <Globe className="w-4 h-4 animate-pulse" />
-                  <span>{lang === 'KU' ? 'دۆزینەوەی یاریزان بە خۆکاری 🔎' : 'Find Opponent Automatically 🔎'}</span>
-                </button>
+                {registeredUsers.length === 0 ? (
+                  <p className="text-[10px] text-white/40 text-center py-2">
+                    {lang === 'KU' ? 'هیچ یاریزانێکی تر لەم ئامێرە/مەکۆیە تۆمار نەکراوە.' : 'No other players registered on this server.'}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                    {registeredUsers.map((p) => (
+                      <div 
+                        key={p.id}
+                        className="flex items-center justify-between bg-black/30 border border-white/5 p-2 rounded-xl text-xs"
+                      >
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <span className="text-lg">⚔️</span>
+                          <div className="text-right">
+                            <span className="font-black text-slate-100 block">@{p.username}</span>
+                            <span className="text-[9px] text-cyan-400/80 font-bold">🪙 {p.tokens} {lang === 'KU' ? 'تۆکن' : 'Tokens'}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleSendInviteToUser(p)}
+                          className="bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-500/40 hover:border-indigo-400 text-indigo-200 hover:text-white py-1 px-3 rounded-lg text-[10px] font-black transition-all active:scale-90 cursor-pointer"
+                        >
+                          {lang === 'KU' ? 'بانگهێشت ⚔️' : 'Invite ⚔️'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Peer-to-peer simulator guidelines */}
-            <div className="text-[11px] text-white/40 leading-relaxed text-right font-bold bg-white/5 border border-white/5 rounded-2xl p-3.5">
-              <span>⚡ {lang === 'KU' ? 'سیستەمی ژوورەکان بە تەواوی پاڵپشتی کلاودفلێر Workers KV و بنکەی دراوەی Realtime دەکات بۆ گواستنەوەی جێگیر.' : 'Standard direct peer-to-peer messaging channel built over low-latency server relays.'}</span>
+            <div className="text-[11px] text-white/40 leading-relaxed text-right font-medium bg-white/5 border border-white/5 rounded-2xl p-3.5">
+              <span>⚡ {lang === 'KU' ? 'لیستی بەستراوەیی کڵاودی یاریەکە کارایە بە تەواوی لە رێگەی گێڕانەوەی ڕوندە کورتەکانی کڵاودفلێر.' : 'Standard direct peer-to-peer messaging channel built over low-latency server relays.'}</span>
             </div>
           </motion.div>
         )}
@@ -1841,6 +2296,46 @@ export default function App() {
               >
                 {lang === 'KU' ? 'پەشیمان بوونەوە' : 'Cancel'}
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Real-time Incoming Challenge Modal */}
+      <AnimatePresence>
+        {incomingInvite && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="w-full max-w-sm bg-[#0C0C0E] border-2 border-cyan-400/40 rounded-3xl p-6 text-center shadow-[0_0_50px_rgba(34,211,238,0.25)] relative text-white space-y-5"
+              dir="rtl"
+            >
+              <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center mx-auto">
+                <span className="text-3xl animate-bounce" style={{ animationDuration: '2s' }}>⚔️</span>
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-xl font-black text-cyan-300">داواکاری یاری ئۆنلاین!</h3>
+                <p className="text-xs text-slate-300 leading-relaxed font-bold">
+                  یاریزان <strong className="text-white text-cyan-400">@{incomingInvite.sender}</strong> دەیەوێت لەگەڵت دەست بە یاری بکات و تۆی بانگهێشت کردووە بە ژووبی {incomingInvite.roomCode}.
+                </p>
+              </div>
+
+              <div className="flex space-x-2 space-x-reverse pt-2">
+                <button
+                  onClick={handleAcceptIncomingInvite}
+                  className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-3 rounded-xl font-bold transition-all active:scale-95 cursor-pointer text-xs shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+                >
+                  پەسەندکردن و یاریکردن 🤝
+                </button>
+                <button
+                  onClick={() => setIncomingInvite(null)}
+                  className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl font-bold transition-all active:scale-95 cursor-pointer text-xs text-white"
+                >
+                  ڕەتکردنەوە ✕
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

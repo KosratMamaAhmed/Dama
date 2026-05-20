@@ -38,8 +38,17 @@ export default function AuthSystem({
 }: AuthSystemProps) {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [username, setUsername] = useState('');
-  const [emailOrPhone, setEmailOrPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [emailOrPhone, setEmailOrPhone] = useState(() => localStorage.getItem('dama_rem_email_phone') || '');
+  const [password, setPassword] = useState(() => {
+    const saved = localStorage.getItem('dama_rem_pass');
+    if (!saved) return '';
+    try {
+      return atob(saved);
+    } catch (e) {
+      return '';
+    }
+  });
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('dama_rem_me') !== 'false');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -54,6 +63,22 @@ export default function AuthSystem({
     if (!username.trim() || !emailOrPhone.trim() || !password.trim()) {
       setError(lang === 'KU' ? 'پێویستە هەموو خانەکان پڕبکەیتەوە!' : lang === 'AR' ? 'يرجى ملء جميع الحقول!' : 'Please fill all fields!');
       return;
+    }
+
+    // Safety check against local database to prevent duplicate registrations
+    const cachedUsers = localStorage.getItem('dama_users_db_v2');
+    if (cachedUsers) {
+      try {
+        const parsed = JSON.parse(cachedUsers);
+        if (Array.isArray(parsed)) {
+          const dupName = parsed.find((u: any) => u.username.toLowerCase() === username.trim().toLowerCase());
+          const dupEmail = parsed.find((u: any) => u.email_or_phone.toLowerCase() === emailOrPhone.trim().toLowerCase());
+          if (dupName || dupEmail) {
+            setError(lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : 'Username or email/phone already exists!');
+            return;
+          }
+        }
+      } catch (e) {}
     }
 
     try {
@@ -107,6 +132,40 @@ export default function AuthSystem({
         tokens: loginData.user.tokens,
         is_admin: loginData.user.is_admin === 1,
       };
+
+      // Add user to the local admin database
+      const rawDB = localStorage.getItem('dama_users_db_v2') || '[]';
+      try {
+        let dbList = JSON.parse(rawDB);
+        if (!Array.isArray(dbList)) dbList = [];
+        const existsIdx = dbList.findIndex((u: any) => u.id === loggedUser.id || u.username === loggedUser.username);
+        if (existsIdx > -1) {
+          dbList[existsIdx] = { ...dbList[existsIdx], ...loggedUser };
+        } else {
+          dbList.push(loggedUser);
+        }
+        localStorage.setItem('dama_users_db_v2', JSON.stringify(dbList));
+      } catch (e) {}
+
+      // Save credentials if Remember Me is checked
+      if (rememberMe) {
+        localStorage.setItem('dama_rem_email_phone', emailOrPhone.trim());
+        try {
+          localStorage.setItem('dama_rem_pass', btoa(password));
+        } catch(e) {}
+        localStorage.setItem('dama_rem_me', 'true');
+      } else {
+        localStorage.removeItem('dama_rem_email_phone');
+        localStorage.removeItem('dama_rem_pass');
+        localStorage.setItem('dama_rem_me', 'false');
+      }
+
+      // Live Sync via BroadcastChannel
+      try {
+        const bc = new BroadcastChannel('dama_multiplayer_channel');
+        bc.postMessage({ type: 'SYNC_NEW_USER', user: loggedUser });
+        bc.close();
+      } catch (e) {}
 
       setTimeout(() => {
         setCurrentUser(loggedUser);
@@ -182,6 +241,40 @@ export default function AuthSystem({
         tokens: data.user.tokens,
         is_admin: data.user.is_admin === 1,
       };
+
+      // Add or update the user in the local admin database
+      const rawUsersList = localStorage.getItem('dama_users_db_v2') || '[]';
+      try {
+        let parsedList = JSON.parse(rawUsersList);
+        if (!Array.isArray(parsedList)) parsedList = [];
+        const foundIdx = parsedList.findIndex((u: any) => u.id === loggedUser.id);
+        if (foundIdx > -1) {
+          parsedList[foundIdx] = { ...parsedList[foundIdx], ...loggedUser };
+        } else {
+          parsedList.push(loggedUser);
+        }
+        localStorage.setItem('dama_users_db_v2', JSON.stringify(parsedList));
+      } catch (e) {}
+
+      // Save credentials if Remember Me is checked
+      if (rememberMe) {
+        localStorage.setItem('dama_rem_email_phone', emailOrPhone.trim());
+        try {
+          localStorage.setItem('dama_rem_pass', btoa(password));
+        } catch (e) {}
+        localStorage.setItem('dama_rem_me', 'true');
+      } else {
+        localStorage.removeItem('dama_rem_email_phone');
+        localStorage.removeItem('dama_rem_pass');
+        localStorage.setItem('dama_rem_me', 'false');
+      }
+
+      // Live Sync via BroadcastChannel
+      try {
+        const bc = new BroadcastChannel('dama_multiplayer_channel');
+        bc.postMessage({ type: 'SYNC_NEW_USER', user: loggedUser });
+        bc.close();
+      } catch (e) {}
 
       setTimeout(() => {
         setCurrentUser(loggedUser);
@@ -322,6 +415,22 @@ export default function AuthSystem({
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center justify-between pt-1">
+              <div></div>
+              <label className="flex items-center space-x-2 space-x-reverse cursor-pointer group text-xs text-white/60 select-none">
+                <span className="group-hover:text-white transition-colors">
+                  {lang === 'KU' ? 'بیرم کەرەوە (هه‌ڵگرتنی زانیارییه‌كان)' : 'Remember Me'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-white/10 bg-black/40 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-cyan-500"
+                />
+              </label>
             </div>
 
             <button

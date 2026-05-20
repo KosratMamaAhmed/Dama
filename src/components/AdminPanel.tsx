@@ -29,6 +29,29 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
 
   const [notif, setNotif] = useState('');
 
+  React.useEffect(() => {
+    const loadUsers = () => {
+      const raw = localStorage.getItem('dama_users_db_v2');
+      if (raw) {
+        try {
+          setUsers(JSON.parse(raw));
+        } catch (e) {}
+      }
+    };
+    
+    try {
+      const bc = new BroadcastChannel('dama_multiplayer_channel');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'SYNC_NEW_USER' || event.data?.type === 'SYNC_USER_CHG') {
+          loadUsers();
+        }
+      };
+      return () => {
+        bc.close();
+      };
+    } catch (e) {}
+  }, []);
+
   const syncToDB = (updatedList: UserProfile[]) => {
     localStorage.setItem('dama_users_db_v2', JSON.stringify(updatedList));
     setUsers(updatedList);

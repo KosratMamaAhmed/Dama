@@ -112,59 +112,7 @@ export const AboutPage: React.FC<{ onBack: () => void; lang: 'KU' | 'AR' | 'EN' 
              </div>
          </div>
 
-         {/* بەشی بەرنامەکان (Our Products) */}
-         <div className="mb-10 text-right">
-             <h2 className="text-lg font-bold text-white mb-4 px-2">بەرهەمە نایابەکانمان</h2>
-             <div className="space-y-3">
-                 
-                 {/* Card 1 */}
-                 <button onClick={() => openLink('https://play.google.com/store/apps/details?id=com.nmadev.darmanzany&hl=en')} className="w-full flex items-center p-4 rounded-[1.5rem] bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 transition-all active:scale-[0.98] group text-right cursor-pointer">
-                     <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-amber-500/10 p-2 border border-white/10 flex items-center justify-center text-2xl">
-                         💊
-                     </div>
-                     <div className="mr-4 flex-1">
-                         <h4 className="text-base font-bold text-white mb-1">دەرمانزانی</h4>
-                         <p className="text-xs text-slate-400">کۆڕسی فێربوونی دەرمانەکان</p>
-                     </div>
-                     <ChevronLeft size={20} className="text-slate-500 group-hover:text-amber-400 transition-colors" />
-                 </button>
-
-                 {/* Card 2 */}
-                 <button onClick={() => openLink('https://play.google.com/store/apps/dev?id=6744749568381312149&hl=en')} className="w-full flex items-center p-4 rounded-[1.5rem] bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 transition-all active:scale-[0.98] group text-right cursor-pointer">
-                     <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-blue-500/10 p-2 border border-white/10 flex items-center justify-center text-2xl">
-                         🤖
-                     </div>
-                     <div className="mr-4 flex-1">
-                         <h4 className="text-base font-bold text-white mb-1">بەرنامەی زیاتر</h4>
-                         <p className="text-xs text-slate-400">هەموو بەرنامەکانم لە پلەی ستۆر - بە هەڵسەنگاندنەکانتان پشتگیریمان بکەن</p>
-                     </div>
-                     <ChevronLeft size={20} className="text-slate-500 group-hover:text-amber-400 transition-colors" />
-                 </button>
-
-                 {/* Card 3 */}
-                 <button onClick={() => openLink('https://biokurd.com/kosratdrug')} className="w-full flex items-center p-4 rounded-[1.5rem] bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 transition-all active:scale-[0.98] group text-right cursor-pointer">
-                     <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-purple-500/10 p-2 border border-white/10 flex items-center justify-center text-2xl">
-                         🔗
-                     </div>
-                     <div className="mr-4 flex-1">
-                         <h4 className="text-base font-bold text-white mb-1">لینکی بەرنامەکانم</h4>
-                         <p className="text-xs text-slate-400">لێرە سەپۆرتمان بکەن</p>
-                     </div>
-                     <ChevronLeft size={20} className="text-slate-500 group-hover:text-amber-400 transition-colors" />
-                 </button>
-
-             </div>
-         </div>
-
-         {/* ئاگادارکردنەوەی پزیشکی (Medical Disclaimer) */}
-         <div className="mb-12 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-right">
-             <div className="mt-0.5 shrink-0">
-                 <Info size={22} className="text-red-400" />
-             </div>
-             <p className="text-xs md:text-sm text-red-300/90 font-medium leading-relaxed">
-                 ئەم بەرنامەیە تەنها بۆ مەبەستی زانیارییە و بە هیچ شێوەیەک نابێت وەک جێگرەوەی ڕێنمایی و پشکنینی پزیشکی تایبەتمەند بەکاربهێنرێت.
-             </p>
-         </div>
+         {/* The products and medical disclaimer sections have been removed. */}
 
       </div>
 

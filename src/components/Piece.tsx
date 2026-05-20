@@ -214,7 +214,22 @@ export default function Piece({ piece, isSelected, theme, pieceStyle = 'CLASSIC_
       )}
 
       {piece.type === 'KING' && (
-        <Crown className="w-[50%] h-[50%] text-amber-400 drop-shadow-[0_2px_5px_rgba(0,0,0,0.8)] z-20 animate-pulse relative" />
+        <div className="absolute inset-x-0 inset-y-0 flex items-center justify-center pointer-events-none z-20">
+          {/* Glowing pulse ring */}
+          <div className={`absolute w-[75%] h-[75%] rounded-full animate-ping opacity-25 ${
+            piece.player === 'CYAN' ? 'bg-cyan-400' : 'bg-amber-400'
+          }`} />
+          {/* Beautiful glowing Crown element with shadow and custom color mapping */}
+          <Crown className={`w-[55%] h-[55%] relative z-20 animate-pulse duration-[1500ms] filter ${
+            piece.player === 'CYAN'
+              ? 'text-cyan-200 drop-shadow-[0_0_12px_rgba(6,182,212,0.9)] stroke-cyan-300 stroke-[2.5]'
+              : 'text-amber-100 drop-shadow-[0_0_12px_rgba(245,158,11,0.9)] stroke-amber-300 stroke-[2.5]'
+          }`} />
+          {/* Subtle jewel accent */}
+          <span className={`absolute top-[28%] w-2 h-2 rounded-full z-25 animate-ping opacity-45 match-color ${
+            piece.player === 'CYAN' ? 'bg-cyan-100 shadow-[0_0_8px_rgba(6,182,212,1)]' : 'bg-amber-100 shadow-[0_0_8px_rgba(245,158,11,1)]'
+          }`} />
+        </div>
       )}
     </motion.div>
   );
