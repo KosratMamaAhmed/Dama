@@ -451,6 +451,6 @@ router.all('*', () => {
 
 export default {
   fetch(request: Request, env: any): Promise<Response> {
-    return router.handle(request, env);
+    return router.fetch(request, env);
   }
 };
