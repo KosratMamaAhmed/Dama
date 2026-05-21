@@ -1,34 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home, RefreshCw, Cpu, Loader2 } from 'lucide-react';
+import { Home, RefreshCw, Cpu } from 'lucide-react';
 import Board from './Board';
 import { getAIMove } from '../ai';
 
-export default function GameBoardArea({ gameState, dispatch, mode, difficulty, setScreen }: any) {
-  const [isThinking, setIsThinking] = useState(false);
-
+export default function GameBoardArea({ gameState, dispatch, mode, difficulty, setScreen, theme, pieceFlag }: any) {
+  
+  // لۆجیکی زیرەکی دەستکرد بە خێرایی باڵا بێ هیچ چاوەڕوانییەک (Instant Move)
   useEffect(() => {
     if (mode === 'AI' && gameState.turn === 'WHITE' && !gameState.winner) {
-      setIsThinking(true);
-      
-      // چاوەڕێ دەکات تا ئەنیمەیشنی پێشوو تەواو دەبێت، پاشان بیر دەکاتەوە
+      // تەنها ١٠ میللی چرکە دەوەستێت بۆ ئەوەی ڕووکارەکە وشەی "سەرەی ڕۆبۆتە" نیشان بدات
       const timer = setTimeout(() => {
         const aiMove = getAIMove(gameState.board, difficulty, 'WHITE', gameState.mustJumpPos);
-        
         if (aiMove) {
-          // دیاریکردنی بەردەکە
           dispatch({ type: 'SELECT_OR_MOVE', payload: { r: aiMove.r, c: aiMove.c } });
-          
-          // چاوەڕێ دەکات ٤٠٠ میللی چرکە پێش ئەوەی بیجووڵێنێت بۆ ئەوەی بینەر بیبینێت
-          setTimeout(() => {
-            dispatch({ type: 'SELECT_OR_MOVE', payload: { r: aiMove.dest.r, c: aiMove.dest.c } });
-            setIsThinking(false);
-          }, 400); 
-        } else {
-          setIsThinking(false);
+          // ڕاستەوخۆ دەیباتە شوێنی خۆی
+          dispatch({ type: 'SELECT_OR_MOVE', payload: { r: aiMove.dest.r, c: aiMove.dest.c } });
         }
-      }, 300); // 300ms باشترین کاتە بۆ ڕێگریکردن لە Freeze.
-
+      }, 10); 
       return () => clearTimeout(timer);
     }
   }, [mode, difficulty, gameState.turn, gameState.winner, gameState.board, dispatch]);
@@ -54,7 +43,7 @@ export default function GameBoardArea({ gameState, dispatch, mode, difficulty, s
               exit={{ opacity: 0, y: 10 }}
               className="inline-block"
             >
-              {gameState.turn === 'CYAN' ? 'سەرەی تۆیە 🥷🏽' : (mode === 'AI' ? 'سەرەی ڕۆبۆتە 🤖' : 'سەرەی بەرامبەرە 👴🏽')}
+              {gameState.turn === 'CYAN' ? 'سەرەی تۆیە 🥷🏽' : (mode === 'AI' ? 'ڕۆبۆت جوڵا 🤖' : 'سەرەی بەرامبەرە 👴🏽')}
             </motion.span>
           </AnimatePresence>
         </div>
@@ -67,19 +56,9 @@ export default function GameBoardArea({ gameState, dispatch, mode, difficulty, s
       <div className={`w-full max-w-[400px] p-4 rounded-3xl border-2 flex items-center justify-between transition-all duration-300 ${
         gameState.turn === 'WHITE' && !gameState.winner ? 'bg-white/10 border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.15)] scale-[1.02]' : 'bg-black/20 border-transparent opacity-60'
       }`}>
-        <div className="flex items-center gap-3 text-4xl">
-          {mode === 'AI' ? '🤖' : '👴🏽'}
-          <AnimatePresence>
-            {isThinking && (
-              <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 'auto' }} exit={{ opacity: 0, width: 0 }} className="flex items-center gap-2 bg-indigo-500/20 px-3 py-1.5 rounded-full border border-indigo-500/30 overflow-hidden whitespace-nowrap">
-                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-                <span className="text-[10px] text-indigo-300 font-bold">بیردەکاتەوە...</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <div className="text-4xl">{mode === 'AI' ? '🤖' : '👴🏽'}</div>
         <div className="text-right">
-          <p className="text-lg font-black text-white">{mode === 'AI' ? 'مێشکی دەستکرد' : 'یاریزانی سپی'}</p>
+          <p className="text-lg font-black text-white">{mode === 'AI' ? 'وەستای دەستکرد' : 'یاریزانی ڕەش/سپی'}</p>
           {mode === 'AI' && (
             <p className="text-[10px] text-cyan-400 flex items-center justify-end gap-1 mt-1 font-bold"><Cpu className="w-3 h-3" /> ئاستی {difficulty}</p>
           )}
@@ -90,8 +69,8 @@ export default function GameBoardArea({ gameState, dispatch, mode, difficulty, s
         <Board 
           gameState={gameState} 
           dispatch={dispatch} 
-          theme="DARK_NEON"       
-          pieceStyle="NEON_GLOW"  
+          theme={theme || 'CLASSIC_WOOD'}       
+          pieceStyle={pieceFlag || 'WHITE_BLACK'}  
           disabled={mode === 'AI' && gameState.turn === 'WHITE'} 
         />
       </div>
@@ -101,7 +80,7 @@ export default function GameBoardArea({ gameState, dispatch, mode, difficulty, s
       }`}>
         <div className="text-4xl">🥷🏽</div>
         <div className="text-right">
-          <p className="text-lg font-black text-cyan-400">یاریزانی شین</p>
+          <p className="text-lg font-black text-cyan-400">یاریزانی سەرەکی</p>
           <p className="text-[10px] text-cyan-400/60 font-bold mt-1">تۆ</p>
         </div>
       </div>
