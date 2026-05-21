@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shield, Users, Search, Trash2, Key, Award, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { UserProfile } from './AuthSystem';
 import { Language } from '../translations';
+import { BACKEND_URL } from '../config';
 
 interface AdminPanelProps {
   lang: Language;
@@ -9,36 +10,44 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
-  const [users, setUsers] = useState<UserProfile[]>(() => {
-    const raw = localStorage.getItem('dama_users_db_v2');
-    if (!raw) return [];
-    try {
-      return JSON.parse(raw);
-    } catch (e) {
-      return [];
-    }
-  });
-
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   
   // Modals / forms state
   const [newPassword, setNewPassword] = useState('');
   const [tokenAmount, setTokenAmount] = useState<number>(10);
-  const [banDuration, setBanDuration] = useState<string>('5_mins'); // 1_min, 5_mins, 1_hour, 1_day, lift
-
+  const [banDuration, setBanDuration] = useState<string>('5_mins'); 
   const [notif, setNotif] = useState('');
 
-  React.useEffect(() => {
-    const loadUsers = () => {
+  // Get Admin ID from local storage safely
+  const adminId = (() => {
+    try {
+      const u = localStorage.getItem('dama_current_user_v2');
+      if (u) return JSON.parse(u).id;
+    } catch (e) {}
+    return null;
+  })();
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users`);
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.users);
+        localStorage.setItem('dama_users_db_v2', JSON.stringify(data.users));
+      }
+    } catch (e) {
+      // Fallback
       const raw = localStorage.getItem('dama_users_db_v2');
       if (raw) {
-        try {
-          setUsers(JSON.parse(raw));
-        } catch (e) {}
+        try { setUsers(JSON.parse(raw)); } catch (err) {}
       }
-    };
-    
+    }
+  };
+
+  React.useEffect(() => {
+    loadUsers();
     try {
       const bc = new BroadcastChannel('dama_multiplayer_channel');
       bc.onmessage = (event) => {
@@ -46,124 +55,87 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
           loadUsers();
         }
       };
-      return () => {
-        bc.close();
-      };
+      return () => bc.close();
     } catch (e) {}
   }, []);
 
-  const syncToDB = (updatedList: UserProfile[]) => {
-    localStorage.setItem('dama_users_db_v2', JSON.stringify(updatedList));
-    setUsers(updatedList);
-  };
-
-  const handleDeleteUser = (id: string) => {
-    if (confirm(lang === 'KU' ? 'ئایا دڵنیایت لە سڕینەوەی ئەم بەکارهێنەرە؟' : 'Are you sure you want to delete this user?')) {
-      const filtered = users.filter(u => u.id !== id);
-      syncToDB(filtered);
-      if (selectedUser?.id === id) setSelectedUser(null);
-      triggerNotification(lang === 'KU' ? 'بەکارهێنەرەکە بە سەرکەوتوویی سڕایەوە!' : 'User deleted successfully!');
-    }
-  };
-
-  const handleChangePassword = () => {
-    if (!selectedUser || !newPassword.trim()) return;
-    
-    // Simulate encryption
-    const simpleHash = (str: string) => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        hash = (hash << 5) - hash + str.charCodeAt(i);
-        hash |= 0;
-      }
-      return Math.abs(hash).toString(16);
-    };
-
-    const updated = users.map(u => {
-      if (u.id === selectedUser.id) {
-        return { ...u, passwordHash: simpleHash(newPassword) };
-      }
-      return u;
-    });
-
-    syncToDB(updated);
-    setSelectedUser(updated.find(u => u.id === selectedUser.id) || null);
-    setNewPassword('');
-    triggerNotification(lang === 'KU' ? 'پاسوۆردەکە بە سەرکەوتوویی گۆڕدرا!' : 'Password changed successfully!');
-  };
-
-  const handleAdjustTokens = (positive: boolean) => {
-    if (!selectedUser) return;
-    const amount = positive ? tokenAmount : -tokenAmount;
-    
-    const updated = users.map(u => {
-      if (u.id === selectedUser.id) {
-        const currentTokens = u.tokens || 0;
-        return { ...u, tokens: Math.max(0, currentTokens + amount) };
-      }
-      return u;
-    });
-
-    syncToDB(updated);
-    setSelectedUser(updated.find(u => u.id === selectedUser.id) || null);
-    triggerNotification(lang === 'KU' ? `تۆکنی بەکارهێنەرەکە نوێکرایەوە! (${amount > 0 ? '+' : ''}${amount} 🪙)` : `User tokens updated! (${amount > 0 ? '+' : ''}${amount} 🪙)`);
-  };
-
-  const handleApplyBan = () => {
-    if (!selectedUser) return;
-    
-    let durationMs = 0;
-    if (banDuration === '1_min') durationMs = 60 * 1000;
-    else if (banDuration === '5_mins') durationMs = 5 * 60 * 1000;
-    else if (banDuration === '1_hour') durationMs = 60 * 60 * 1000;
-    else if (banDuration === '1_day') durationMs = 24 * 60 * 60 * 1000;
-    else if (banDuration === 'lift') durationMs = 100 * 365 * 24 * 60 * 60 * 1000; // 100 years
-
-    const bannedUntil = Date.now() + durationMs;
-
-    const updated = users.map(u => {
-      if (u.id === selectedUser.id) {
-        return { ...u, bannedUntil };
-      }
-      return u;
-    });
-
-    syncToDB(updated);
-    setSelectedUser(updated.find(u => u.id === selectedUser.id) || null);
-    
-    let successMsg = '';
-    if (lang === 'KU') {
-      successMsg = `بەکارهێنەرەکە بە سەرکەوتوویی باندکرا ! 🛑`;
-    } else {
-      successMsg = `User successfully suspended! 🛑`;
-    }
-    triggerNotification(successMsg);
-  };
-
-  const handleRevokeBan = () => {
-    if (!selectedUser) return;
-
-    const updated = users.map(u => {
-      if (u.id === selectedUser.id) {
-        const { bannedUntil, ...rest } = u;
-        return rest;
-      }
-      return u;
-    });
-
-    syncToDB(updated);
-    setSelectedUser(updated.find(u => u.id === selectedUser.id) || null);
-    triggerNotification(lang === 'KU' ? 'باندەکە هەڵوەشێنرایەوە! ✅' : 'Ban revoked successfully! ✅');
-  };
-
   const triggerNotification = (msg: string) => {
     setNotif(msg);
-    setTimeout(() => {
-      setNotif('');
-    }, 4000);
+    setTimeout(() => setNotif(''), 4000);
   };
 
-  // Filter out any users we search for
+  const doAdminAction = async (actionType: string, targetUserId: string, value?: any) => {
+    if (!adminId) {
+      triggerNotification(lang === 'KU' ? 'کێشە لە دەسەڵاتی ئەدمین هەیە!' : 'Admin authentication error!');
+      return false;
+    }
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId, actionType, targetUserId, value })
+      });
+      const data = await res.json();
+      if (data.success) {
+        triggerNotification(data.message || (lang === 'KU' ? 'بەسەرکەوتوویی ئەنجامدرا!' : 'Success!'));
+        await loadUsers(); // Refresh the list from DB
+        return true;
+      } else {
+        triggerNotification(data.error || 'Error!');
+        return false;
+      }
+    } catch (e) {
+      triggerNotification('کێشەی هێڵ هەیە!');
+      return false;
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (confirm(lang === 'KU' ? 'ئایا دڵنیایت لە سڕینەوەی ئەم بەکارهێنەرە بەتەواوی لە داتابەیس؟' : 'Delete user permanently?')) {
+      const success = await doAdminAction('DELETE_USER', id);
+      if (success && selectedUser?.id === id) setSelectedUser(null);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!selectedUser || !newPassword.trim()) return;
+    const success = await doAdminAction('CHANGE_PASSWORD', selectedUser.id, newPassword);
+    if (success) setNewPassword('');
+  };
+
+  const handleAdjustTokens = async (positive: boolean) => {
+    if (!selectedUser) return;
+    const amount = positive ? tokenAmount : -tokenAmount;
+    const success = await doAdminAction('UPDATE_TOKENS', selectedUser.id, amount);
+    if (success) {
+      // Update selectedUser state locally to reflect UI changes instantly
+      setSelectedUser(prev => prev ? { ...prev, tokens: Math.max(0, (prev.tokens || 0) + amount) } : null);
+    }
+  };
+
+  const handleApplyBan = async () => {
+    if (!selectedUser) return;
+    let mins = 60;
+    if (banDuration === '1_min') mins = 1;
+    else if (banDuration === '5_mins') mins = 5;
+    else if (banDuration === '1_hour') mins = 60;
+    else if (banDuration === '1_day') mins = 1440;
+    else if (banDuration === 'lift') mins = 52560000; 
+
+    const success = await doAdminAction('BAN', selectedUser.id, mins);
+    if (success) {
+      setSelectedUser(prev => prev ? { ...prev, bannedUntil: Date.now() + (mins * 60 * 1000) } : null);
+    }
+  };
+
+  const handleRevokeBan = async () => {
+    if (!selectedUser) return;
+    const success = await doAdminAction('UNBAN', selectedUser.id);
+    if (success) {
+      setSelectedUser(prev => prev ? { ...prev, bannedUntil: undefined } : null);
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email_or_phone.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -172,7 +144,6 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
 
   return (
     <div className="w-full max-w-4xl bg-slate-900 border border-white/20 rounded-3xl p-5 sm:p-7 backdrop-blur-3xl shadow-2xl relative select-none text-right flex flex-col space-y-5">
-      {/* Decorative Top header */}
       <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500 via-amber-400 to-yellow-500 rounded-t-3xl" />
       
       <div className="flex justify-between items-center pb-4 border-b border-white/10">
@@ -207,7 +178,7 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
               <div className="border-b border-white/5 pb-3">
                 <span className="text-[10px] uppercase font-black tracking-widest text-amber-400">دیاریکراو • Target User</span>
                 <h3 className="text-lg font-black text-white">{selectedUser.username}</h3>
-                <p className="text-xs text-white/50 font-mono mt-0.5 mt-0.5">ID: {selectedUser.id}</p>
+                <p className="text-xs text-white/50 font-mono mt-0.5">ID: {selectedUser.id}</p>
                 <p className="text-xs text-white/40 font-mono mt-0.5">{selectedUser.email_or_phone}</p>
                 <div className="mt-2.5 flex items-center space-x-3 space-x-reverse">
                   <div className="text-xs font-bold bg-amber-500/10 border border-amber-500/20 text-amber-300 py-1 px-3 rounded-full">
@@ -328,7 +299,6 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
 
         {/* Right Side: Account Lists */}
         <div className="lg:col-span-7 bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col space-y-4">
-          {/* Search bar */}
           <div className="relative">
             <input
               type="text"
@@ -345,7 +315,6 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
             <span>بەکارهێنەرانی ئەپ</span>
           </div>
 
-          {/* User Rows */}
           <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
             {filteredUsers.length > 0 ? (
               filteredUsers.map(user => (
@@ -374,7 +343,7 @@ export default function AdminPanel({ lang, onClose }: AdminPanelProps) {
                         BANNED
                       </span>
                     )}
-                    {user.is_admin && (
+                    {user.is_admin === 1 && (
                       <span className="text-[9px] bg-cyan-500/20 text-cyan-300 font-bold py-0.5 px-1.5 rounded">
                         ADMIN
                       </span>

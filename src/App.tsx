@@ -70,7 +70,6 @@ const QUICK_PHRASES = {
 export default function App() {
   const [lang, setLang] = useState<Language>('KU');
   
-  // Custom nested back-history screen stack that scales beautifully!
   type ScreenType = 'HOME' | 'SETUP_AI' | 'SETUP_FRIEND' | 'PLAYING' | 'RULES_PAGE' | 'POLICY_PAGE' | 'LOBBY' | 'REPLAY' | 'ABOUT';
   const [screen, setScreenRaw] = useState<ScreenType>('HOME');
   const [screenHistory, setScreenHistory] = useState<ScreenType[]>([]);
@@ -96,7 +95,6 @@ export default function App() {
     }
   };
 
-  // Custom premium notifications system
   const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'error' | 'info' }[]>([]);
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Math.random().toString();
@@ -106,7 +104,6 @@ export default function App() {
     }, 3800);
   };
 
-  // Google Chrome & iOS Safari PWA Install variables
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showIosPrompt, setShowIosPrompt] = useState(false);
   const [showChromeInstall, setShowChromeInstall] = useState(false);
@@ -134,7 +131,6 @@ export default function App() {
   const [isLandscape, setIsLandscape] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // New features state
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const raw = localStorage.getItem('dama_current_user_v2');
     if (!raw) return null;
@@ -159,12 +155,10 @@ export default function App() {
   const [bypassPasscode, setBypassPasscode] = useState<string>('');
   const [adminUser, setAdminUser] = useState<string>('');
   
-  // Auto Matchmaking State
   const [showAutoMatch, setShowAutoMatch] = useState<boolean>(false);
   const [foundPlayers, setFoundPlayers] = useState<{id: string; name: string; avatar: string}[]>([]);
   const [autoMatchTarget, setAutoMatchTarget] = useState<string>('');
 
-  // Persist current user changes
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('dama_current_user_v2', JSON.stringify(currentUser));
@@ -173,7 +167,6 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Persist piece flag selection
   useEffect(() => {
     localStorage.setItem('dama_piece_flag_v1', pieceFlag);
   }, [pieceFlag]);
@@ -181,33 +174,27 @@ export default function App() {
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
 
-  // AI Coach Hint state
   const [coachHintSource, setCoachHintSource] = useState<{ r: number; c: number } | null>(null);
   const [coachHintDest, setCoachHintDest] = useState<{ r: number; c: number } | null>(null);
   const [coachHintMessage, setCoachHintMessage] = useState<string>('');
   const [coachHintsLeft, setCoachHintsLeft] = useState<number>(5);
 
-  // Match Replay state
   const [matchStateHistory, setMatchStateHistory] = useState<any[]>([]);
   const [replayIndex, setReplayIndex] = useState<number | null>(null);
 
-  // Lobby Code & Simulated peer connections
   const [roomCode, setRoomCode] = useState<string>('');
   const [isLobbySearching, setIsLobbySearching] = useState<boolean>(false);
   const [lobbyError, setLobbyError] = useState<string>('');
   const [lobbySuccess, setLobbySuccess] = useState<boolean>(false);
   const [typedRoomCode, setTypedRoomCode] = useState<string>('');
 
-  // Real-time multiplayer synchronization
   const [isOnlineMatch, setIsOnlineMatch] = useState<boolean>(false);
   const [onlineRole, setOnlineRole] = useState<'HOST' | 'GUEST' | null>(null);
   const [incomingInvite, setIncomingInvite] = useState<{ sender: string; roomCode: string } | null>(null);
 
-  // In-Game Chat / Floating Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: string; emoji: string; x: number; y: number }[]>([]);
   const [chatMessage, setChatMessage] = useState<{ sender: 'P1' | 'P2'; text: string; id: string } | null>(null);
 
-  // Built-in Live Game Timer
   const [seconds, setSeconds] = useState(0);
 
   const [gameState, dispatch] = useReducer(gameReducer, initialGameState);
@@ -225,7 +212,6 @@ export default function App() {
   const [hasRestored, setHasRestored] = useState(false);
   const [statsUpdated, setStatsUpdated] = useState(false);
 
-  // Compute other registered profiles for the interactive Lobby
   const registeredUsers = useMemo<UserProfile[]>(() => {
     const raw = localStorage.getItem('dama_users_db_v2');
     if (!raw) return [];
@@ -241,7 +227,6 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Restore saved session on mount (offline continuity support)
   useEffect(() => {
     const savedActive = localStorage.getItem('dama_active_game_v1');
     if (savedActive) {
@@ -249,7 +234,6 @@ export default function App() {
         const parsed = JSON.parse(savedActive);
         if (parsed) {
           if (parsed.lang) setLang(parsed.lang);
-          // if (parsed.screen) setScreen(parsed.screen); // Removed to always start at home
           if (parsed.mode) setMode(parsed.mode);
           if (parsed.difficulty) setDifficulty(parsed.difficulty);
           if (parsed.theme) setTheme(parsed.theme);
@@ -268,7 +252,6 @@ export default function App() {
     setHasRestored(true);
   }, []);
 
-  // Setup PWA install handlers and deep iOS checks on mount
   useEffect(() => {
     const isStandalone = typeof window !== 'undefined' && (
       (window.navigator && 'standalone' in window.navigator && (window.navigator as any).standalone) ||
@@ -276,7 +259,6 @@ export default function App() {
     );
 
     const handleBeforePrompt = (e: any) => {
-      // If downloaded already, suppress Android prompt completely
       if (isStandalone) {
         return;
       }
@@ -302,7 +284,6 @@ export default function App() {
     };
   }, []);
 
-  // Save game automatically on change
   useEffect(() => {
     if (!hasRestored) return;
     const dataToSave = {
@@ -320,7 +301,6 @@ export default function App() {
     localStorage.setItem('dama_active_game_v1', JSON.stringify(dataToSave));
   }, [screen, mode, difficulty, theme, soundEnabled, lang, player1Name, player2Name, seconds, gameState, hasRestored]);
 
-  // Statistics Win/Loss logic
   useEffect(() => {
     if (gameState.winner) {
       if (!statsUpdated) {
@@ -341,8 +321,7 @@ export default function App() {
           return updated;
         });
 
-        // Trigger Token economy update for Online (Friend/Lobby) matches
-        if (mode !== 'AI' && currentUser && onlineRole) {
+        if (mode !== 'AI' && isOnlineMatch && currentUser && onlineRole) {
           let isWinner = false;
           if (onlineRole === 'HOST' && gameState.winner === 'CYAN') isWinner = true;
           if (onlineRole === 'GUEST' && gameState.winner === 'WHITE') isWinner = true;
@@ -353,7 +332,6 @@ export default function App() {
             const updatedUser = { ...currentUser, tokens: updatedTokens };
             setCurrentUser(updatedUser);
 
-            // Update Users DB locally and on D1 Database by adding 20 tokens
             fetch(`${BACKEND_URL}/api/game/end`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -375,39 +353,24 @@ export default function App() {
     } else {
       setStatsUpdated(false);
     }
-  }, [gameState.winner, mode, statsUpdated, currentUser]);
+  }, [gameState.winner, mode, statsUpdated, currentUser, isOnlineMatch, onlineRole]);
 
-  // Reset lastMoveTimestamp when board state shifts or turns update, or user logs in/opens modal
   useEffect(() => {
     setLastMoveTimestamp(Date.now());
   }, [gameState.board, gameState.turn, currentUser, showAuthModal]);
 
-  // 4 minutes AFK Inactivity checking routine
   useEffect(() => {
     let intervalId: any = null;
     if (screen === 'PLAYING' && !gameState.winner) {
       intervalId = setInterval(() => {
         const inactiveMs = Date.now() - lastMoveTimestamp;
-        if (inactiveMs >= 4 * 60 * 1000) { // 240,000 miliseconds (4 minutes)
+        if (inactiveMs >= 4 * 60 * 1000) { 
           setAfkLossOccurred(true);
 
-          if (mode !== 'AI' && currentUser) {
+          if (mode !== 'AI' && isOnlineMatch && currentUser) {
             const updatedTokens = Math.max(0, (currentUser.tokens || 0) - 10);
             const updatedUser = { ...currentUser, tokens: updatedTokens };
             setCurrentUser(updatedUser);
-
-            // Update Users DB
-            const rawDB = localStorage.getItem('dama_users_db_v2');
-            if (rawDB) {
-              try {
-                const db = JSON.parse(rawDB) as UserProfile[];
-                const idx = db.findIndex(u => u.id === currentUser.id);
-                if (idx > -1) {
-                  db[idx].tokens = updatedTokens;
-                  localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
-                }
-              } catch (e) {}
-            }
           }
 
           setScreen('HOME');
@@ -418,7 +381,7 @@ export default function App() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [screen, gameState.winner, lastMoveTimestamp, mode, currentUser]);
+  }, [screen, gameState.winner, lastMoveTimestamp, mode, currentUser, isOnlineMatch]);
 
   const playSound = useDropSound();
   
@@ -426,7 +389,6 @@ export default function App() {
   const prevCaptures = useRef(0);
   const prevWinner = useRef(gameState.winner);
 
-  // Calculate captures
   let whiteCount = 0;
   let cyanCount = 0;
   gameState.board.forEach(row => row.forEach(p => {
@@ -436,7 +398,6 @@ export default function App() {
   const cyanCaptures = 16 - whiteCount;
   const whiteCaptures = 16 - cyanCount;
 
-  // Sound triggering effect
   useEffect(() => {
     if (gameState.winner && !prevWinner.current) {
       if (soundEnabled) playSound('win');
@@ -455,7 +416,6 @@ export default function App() {
     prevWinner.current = gameState.winner;
   }, [gameState.board, gameState.winner, cyanCaptures, whiteCaptures, playSound, soundEnabled]);
 
-  // Timer interval for playing screen
   useEffect(() => {
     let timerId: any = null;
     if (screen === 'PLAYING' && !gameState.winner) {
@@ -470,7 +430,6 @@ export default function App() {
     };
   }, [screen, gameState.winner]);
 
-  // AI execution routine
   useEffect(() => {
     if (screen === 'PLAYING' && mode === 'AI' && gameState.turn === 'WHITE' && !gameState.winner) {
       const timer = setTimeout(() => {
@@ -486,26 +445,21 @@ export default function App() {
     }
   }, [screen, mode, difficulty, gameState.turn, gameState.winner, gameState.board]);
 
-  // Clear Coach Hint when the board state shifts
   useEffect(() => {
     setCoachHintSource(null);
     setCoachHintDest(null);
     setCoachHintMessage('');
   }, [gameState.board, gameState.turn]);
 
-  // Ref to track processed multiplayer message IDs to prevent duplicate actions
   const processedMsgIds = useRef<Set<string>>(new Set());
 
-  // Unified helper to send multiplayer events both locally (BroadcastChannel) and globally (Cloudflare Workers KV)
   const sendMultiplayerMessage = (msg: any) => {
-    // 1. Send via local BroadcastChannel (same machine tabs sync)
     try {
       const bc = new BroadcastChannel('dama_multiplayer_channel');
       bc.postMessage(msg);
       bc.close();
     } catch (e) {}
 
-    // 2. Send via Remote Cloudflare KV server (cross-device/cross-country devices sync)
     if (isOnlineMatch && (roomCode || msg.roomCode)) {
       const targetRoom = msg.roomCode || roomCode;
       fetch(`${BACKEND_URL}/api/room/update`, {
@@ -524,19 +478,12 @@ export default function App() {
     }
   };
 
-  // Intercept physical android / mobile back gestures using POPSTATE
   useEffect(() => {
-    // Push a dummy history state so we have a state to "pop" back from!
     window.history.pushState({ screenState: screen }, '', '');
     
     const handlePopState = (e: PopStateEvent) => {
-      // Prevent physical browser history go-back
       e.preventDefault();
-      
-      // Navigate one step back in our custom memory stack
       handleNavigateBack();
-      
-      // Instantly restore the dummy state to intercept the NEXT swipe gesture
       window.history.pushState({ screenState: screen }, '', '');
     };
     
@@ -546,11 +493,9 @@ export default function App() {
     };
   }, [screen, screenHistory]);
 
-  // Handle incoming message commands uniformly
   const handleIncomingMultiplayerMessage = (data: any) => {
     if (!data) return;
 
-    // 1. Peer requests to join hosted room
     if (data.type === 'PEER_JOIN_REQUEST') {
       if (roomCode && data.roomCode === roomCode && onlineRole === 'HOST' && !lobbySuccess) {
         setLobbySuccess(true);
@@ -560,7 +505,6 @@ export default function App() {
         }
         showNotification(lang === 'KU' ? `دیاری: ${data.guestUser} بەستراوەتەوە بە ژوورەکەت! ⚔️` : `Player ${data.guestUser} joined your room!`, 'success');
         
-        // Auto-reply with ACCEPT over multiplayer channel
         sendMultiplayerMessage({
           type: 'PEER_JOIN_ACCEPT',
           roomCode: roomCode,
@@ -581,7 +525,6 @@ export default function App() {
       }
     }
 
-    // 2. Guest receives peer acceptance
     if (data.type === 'PEER_JOIN_ACCEPT') {
       if (roomCode && data.roomCode === roomCode && onlineRole === 'GUEST' && !lobbySuccess) {
         setLobbySuccess(true);
@@ -605,7 +548,6 @@ export default function App() {
       }
     }
 
-    // 3. Username Direct Invitation
     if (data.type === 'USERNAME_INVITE_SEND') {
       if (currentUser && data.targetUsername.toLowerCase() === currentUser.username.toLowerCase()) {
         setIncomingInvite({
@@ -618,7 +560,6 @@ export default function App() {
       }
     }
 
-    // 4. Accepting direct invitation callback
     if (data.type === 'USERNAME_INVITE_ACCEPT') {
       if (currentUser && data.senderUsername.toLowerCase() === currentUser.username.toLowerCase() && roomCode === data.roomCode && !lobbySuccess) {
         setLobbySuccess(true);
@@ -639,7 +580,6 @@ export default function App() {
       }
     }
 
-    // 5. Board sync
     if (data.type === 'GAME_STATE_UPDATE') {
       if (isOnlineMatch && data.roomCode === roomCode) {
         dispatch({ type: 'HYDRATE_STATE', payload: data.gameState });
@@ -649,7 +589,6 @@ export default function App() {
       }
     }
 
-    // 6. Remote Click sync
     if (data.type === 'REMOTE_CLICK') {
       if (isOnlineMatch && data.roomCode === roomCode) {
         dispatch({ type: 'SELECT_OR_MOVE', payload: data.payload });
@@ -659,7 +598,6 @@ export default function App() {
       }
     }
 
-    // 6. Floating emoji/chat messages sync
     if (data.type === 'GAME_CHAT_SYNC') {
       if (isOnlineMatch && data.roomCode === roomCode) {
         if (data.msgType === 'emoji') {
@@ -685,7 +623,6 @@ export default function App() {
       }
     }
 
-    // 7. Rematch triggers
     if (data.type === 'GAME_REMATCH_OFFER') {
       if (isOnlineMatch && data.roomCode === roomCode) {
         showNotification(lang === 'KU' ? `بەرامبەرەکەت داوای ململانێ سێتێکی نوێ دەکات! 🔄` : `Opponent wants a rematch!`, 'info');
@@ -700,7 +637,6 @@ export default function App() {
     }
   };
 
-  // Listen to multiplayer messages over BroadcastChannel (Local multi-tab backup)
   useEffect(() => {
     try {
       const bc = new BroadcastChannel('dama_multiplayer_channel');
@@ -717,7 +653,6 @@ export default function App() {
     } catch(e) {}
   }, [roomCode, onlineRole, isOnlineMatch, currentUser, soundEnabled, lang]);
 
-  // 📡 Real-time Multiplayer Backend Polling (Cloudflare KV Synchronizer)
   useEffect(() => {
     if (!roomCode || !isOnlineMatch) return;
 
@@ -730,7 +665,6 @@ export default function App() {
         const data = await response.json();
         if (!data || !data.success || !active) return;
 
-        // 1. If we are HOST and status changes to PLAYING and lobby isn't marked as success yet, trigger join
         if (onlineRole === 'HOST' && data.status === 'PLAYING' && !lobbySuccess && data.guestUsername) {
           setLobbySuccess(true);
           setIsLobbySearching(false);
@@ -752,19 +686,16 @@ export default function App() {
           }, 1200);
         }
 
-        // 2. Process all incoming messages from KV
         if (data.messages && Array.isArray(data.messages)) {
           data.messages.forEach((msg: any) => {
             if (!processedMsgIds.current.has(msg.id)) {
               processedMsgIds.current.add(msg.id);
               
-              // Skip messages that we sent to the server ourselves
               if (msg.senderUsername === currentUser?.username) return;
 
-              // Extract the payload (which is the actual BroadcastChannel message format)
-              const originalMsg = msg.payload || msg;
+              // FIXED: Correctly pass the full message to handle sync
+              const originalMsg = msg;
               
-              // Directly execute the message handler!
               handleIncomingMultiplayerMessage(originalMsg);
             }
           });
@@ -774,10 +705,7 @@ export default function App() {
       }
     };
 
-    // Poll instantly
     pollRoom();
-
-    // Poll every 800ms
     const interval = setInterval(pollRoom, 800);
     return () => {
       active = false;
@@ -785,7 +713,6 @@ export default function App() {
     };
   }, [roomCode, isOnlineMatch, onlineRole, lobbySuccess, currentUser, soundEnabled, lang]);
 
-  // 📨 direct challenge / invite polling on Home Screen
   useEffect(() => {
     if (screen !== 'HOME' || !currentUser) return;
 
@@ -799,7 +726,6 @@ export default function App() {
         if (!data || !active) return;
 
         if (data.success && data.invite) {
-          // Show the direct incoming challenge popup!
           setIncomingInvite({
             sender: data.invite.senderUsername,
             roomCode: data.invite.roomCode
@@ -808,9 +734,7 @@ export default function App() {
             try { playSound('select'); } catch(e){}
           }
         }
-      } catch (err) {
-        // Silently ignore network/CORS errors from backend
-      }
+      } catch (err) {}
     };
 
     pollInvite();
@@ -821,13 +745,9 @@ export default function App() {
     };
   }, [screen, currentUser, soundEnabled]);
 
-  // Sync game states over BroadcastChannel on movements is now handled via customDispatch (REMOTE_CLICK)
-
-  // Sophisticated custom dispatcher to capture local player's moves and synchronize via BroadcastChannel
   const customDispatch = (action: any) => {
     dispatch(action);
 
-    // If it's a click action and we are playing online, broadcast it to the opponent!
     if (action.type === 'SELECT_OR_MOVE' && isOnlineMatch && onlineRole && roomCode) {
       sendMultiplayerMessage({
         type: 'REMOTE_CLICK',
@@ -836,6 +756,7 @@ export default function App() {
       });
     }
   };
+  
   useEffect(() => {
     if (screen === 'PLAYING') {
       setMatchStateHistory((prev) => {
@@ -848,7 +769,6 @@ export default function App() {
     }
   }, [gameState.board, screen, gameState.winner]);
 
-  // Safe manual clean refresh of state to avoid cache leaks
   const handleFullReset = () => {
     dispatch({ type: 'RESET_GAME' });
     setSeconds(0);
@@ -857,23 +777,10 @@ export default function App() {
   };
 
   const deductEntryTokens = () => {
-    if (currentUser) {
+    if (currentUser && isOnlineMatch) {
       const updatedTokens = Math.max(0, currentUser.tokens - 10);
       setCurrentUser(prev => prev ? { ...prev, tokens: updatedTokens } : null);
       
-      // Update local storage
-      const rawDB = localStorage.getItem('dama_users_db_v2');
-      if (rawDB) {
-        try {
-          const db = JSON.parse(rawDB);
-          const idx = db.findIndex((u: any) => u.id === currentUser.id);
-          if (idx > -1) {
-            db[idx].tokens = updatedTokens;
-            localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
-          }
-        } catch (e) {}
-      }
-
       fetch(`${BACKEND_URL}/api/game/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -889,19 +796,20 @@ export default function App() {
 
   const startGame = () => {
     handleFullReset();
+    // Explicitly make sure AI and Pass & Play modes are fully offline
+    setIsOnlineMatch(false);
+    setOnlineRole(null);
     setScreen('PLAYING');
   };
 
-  // Trigger floating emoji animation
   const triggerFloatingEmoji = (emoji: string) => {
     const id = Math.random().toString();
-    const x = Math.floor(Math.random() * 240) - 120; // safe horizontal offset
+    const x = Math.floor(Math.random() * 240) - 120;
     setFloatingEmojis((prev) => [...prev, { id, emoji, x, y: 0 }]);
     if (soundEnabled) {
       try { playSound('move'); } catch(e){}
     }
 
-    // Broadcast if online match is active
     if (isOnlineMatch && roomCode) {
       sendMultiplayerMessage({
         type: 'GAME_CHAT_SYNC',
@@ -916,7 +824,6 @@ export default function App() {
     }, 2800);
   };
 
-  // Speaks a quick chat phrase
   const sendQuickChatMessage = (sender: 'P1' | 'P2', text: string) => {
     const id = Math.random().toString();
     setChatMessage({ sender, text, id });
@@ -924,7 +831,6 @@ export default function App() {
       try { playSound('move'); } catch(e){}
     }
 
-    // Broadcast if online match is active
     if (isOnlineMatch && roomCode) {
       sendMultiplayerMessage({
         type: 'GAME_CHAT_SYNC',
@@ -939,21 +845,17 @@ export default function App() {
     }, 4500);
   };
 
-  // AI Hint Coach Evaluation
   const handleGetCoachHint = () => {
     if (coachHintsLeft <= 0) {
       showNotification(
         lang === 'KU' 
           ? 'تۆ لەم یارییەدا هەموو ٥ ئامۆژگارییەکەت بەکارهێناوە! ❌' 
-          : lang === 'AR'
-          ? 'لقد استخدمت جميع النصائح الـ 5 المتاحة لك! ❌'
-          : 'You has used all of your 5 hints for this match! ❌', 
+          : 'You have used all of your 5 hints for this match! ❌', 
         'info'
       );
       return;
     }
 
-    // We evaluate using the AI engine
     const optimal = getAIMove(gameState.board, 'EXPERT', gameState.turn, gameState.mustJumpPos);
     if (optimal) {
       setCoachHintSource({ r: optimal.r, c: optimal.c });
@@ -981,25 +883,8 @@ export default function App() {
           analysis = 'کۆنتڕۆڵکردنی ناوەڕاستی تەختەکە: هاوسەنگییەکی بێوێنە لە نێوان بەرگری و سوپای پێشڕەودا دروست دەکات!';
         }
         msg = `🧠 زیرەکیی بێ‌وێنەی ڕێبەر: [${textSrc} ➔ ${textDest}] | ${analysis}`;
-      } else if (lang === 'AR') {
-        let analysis = 'تحليل تكتيكي: حركة استراتيجية ممتازة توفر توازناً رائعاً في السيطرة.';
-        if (isJump) {
-          analysis = 'فرصة هجومية خارقة: التهام قطعة الخصم وإخراج توازنه الدفاعي عن مساره! ⚔️';
-        } else if (isKing) {
-          analysis = 'توظيف قوة الملك المذهلة: فرض السيطرة الكاملة على رقعة اللعب وتطويق هجماتهم! 👑';
-        } else {
-          analysis = 'تأمين الممرات الحيوية: تصرف تكتيكي يمنع هجمات الخصم المفاجئة من الأطراف!';
-        }
-        msg = `🧠 ذكاء المدرب الخارق: [${textSrc} ➔ ${textDest}] | ${analysis}`;
       } else {
         let analysis = 'Tactical masterpiece: This step secures vital central squares with optimized defense.';
-        if (isJump) {
-          analysis = 'Lethal strike: Deliver a crushing blow to their ranks and capture their defensive unit! ⚔️';
-        } else if (isKing) {
-          analysis = 'Emperor\'s rule: Elevate your King to dominate critical corridors and seal the game! 👑';
-        } else {
-          analysis = 'Positional control: Crafting a precise blockade against future opponent encroachment.';
-        }
         msg = `🧠 Master Coach Intelligence: [${textSrc} ➔ ${textDest}] | ${analysis}`;
       }
 
@@ -1008,28 +893,19 @@ export default function App() {
         try { playSound('move'); } catch(e){}
       }
     } else {
-      showNotification(
-        lang === 'KU' 
-          ? 'هیچ پێشنیارێکی گونجاو لەم شوێنەدا بوونی نییە!' 
-          : 'No highly intelligent moves could be computed here!', 
-        'info'
-      );
+      showNotification(lang === 'KU' ? 'هیچ پێشنیارێکی گونجاو لەم شوێنەدا بوونی نییە!' : 'No highly intelligent moves could be computed here!', 'info');
     }
   };
 
-  // Create real-time simulation Room Code
   const handleCreateRoom = () => {
     setLobbyError('');
     setLobbySuccess(false);
-    
-    // Generate randomized code
     const generated = Math.floor(1000 + Math.random() * 9000).toString();
     setRoomCode(generated);
     setIsLobbySearching(true);
     setOnlineRole('HOST');
     setIsOnlineMatch(true);
 
-    // Register room code on backend immediately
     fetch(`${BACKEND_URL}/api/room/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1040,7 +916,6 @@ export default function App() {
     }).catch(err => console.error("Error registering hosted room on Cloudflare KV:", err));
   };
 
-  // Join Room with a code
   const handleJoinRoom = () => {
     if (!typedRoomCode || typedRoomCode.length !== 4) {
       setLobbyError(lang === 'KU' ? 'کۆدەکە دەبێت ٤ ژمارە بێت!' : 'Code must be 4 digits!');
@@ -1053,7 +928,6 @@ export default function App() {
     setOnlineRole('GUEST');
     setIsOnlineMatch(true);
 
-    // Call join API on backend
     fetch(`${BACKEND_URL}/api/room/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1071,7 +945,6 @@ export default function App() {
       return res.json();
     })
     .then((data: any) => {
-      // Successfully joined the hosted room! Setup name bindings and expect matchmaking in next polls
       setLobbySuccess(true);
       setIsLobbySearching(false);
       if (soundEnabled) {
@@ -1098,29 +971,18 @@ export default function App() {
     });
   };
 
-  // Explicitly simulate player joining (keeps backward compatibility)
-  const triggerPeerConnectionSim = () => {
-    setIsLobbySearching(false);
-    setLobbySuccess(true);
-    if (soundEnabled) {
-      try { playSound('win'); } catch(e){}
-    }
-  };
-
   const handleAcceptIncomingInvite = () => {
     if (!incomingInvite) return;
     setRoomCode(incomingInvite.roomCode);
     setOnlineRole('GUEST');
     setLobbySuccess(true);
     
-    // Clear invite from backend first
     fetch(`${BACKEND_URL}/api/invite/clear`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: currentUser?.username })
     }).catch(e => console.error(e));
 
-    // Join room on backend
     fetch(`${BACKEND_URL}/api/room/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1164,7 +1026,6 @@ export default function App() {
     setIsLobbySearching(true);
     setLobbySuccess(false);
 
-    // Register room code on Cloudflare and send invite
     fetch(`${BACKEND_URL}/api/room/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1174,7 +1035,6 @@ export default function App() {
       })
     })
     .then(() => {
-      // Send invite to user via backend
       fetch(`${BACKEND_URL}/api/invite/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1191,7 +1051,6 @@ export default function App() {
   };
 
   const handleStartLobbyMatch = () => {
-    // Assign names
     const myName = currentUser ? currentUser.username : (lang === 'KU' ? 'کۆسرەت' : 'Kosret');
     setPlayer1Name(`${myName} (${lang === 'KU' ? 'تۆ' : 'You'})`);
     setPlayer2Name(lang === 'KU' ? 'هاوڕێی میوان 👤' : 'Guest Friend 👤');
@@ -1209,7 +1068,6 @@ export default function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Safari Home Screen/PWA detection helper
   const isIos = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   const p1 = player1Name.trim() || (lang === 'KU' ? 'کۆسرەت' : lang === 'AR' ? 'كوسرت' : 'Kosret');
@@ -1227,7 +1085,6 @@ export default function App() {
       className="min-h-[100dvh] w-full bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-indigo-950 font-sans text-white selection:bg-cyan-500/30 overflow-x-hidden relative flex flex-col items-center pb-[max(3rem,env(safe-area-inset-bottom))]"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
-      {/* Global Checkers Pattern Amazing Background Layer */}
       <div 
         className={`fixed inset-0 z-0 pointer-events-none transition-opacity duration-500 ${
           screen === 'PLAYING' ? 'opacity-0' : 'opacity-100'
@@ -1239,11 +1096,9 @@ export default function App() {
         }}
       />
       
-      {/* Decorative environment background lights */}
       <div className="fixed top-[-5%] left-[-5%] w-[60vw] h-[60vw] max-w-[400px] max-h-[400px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="fixed bottom-[-5%] right-[-5%] w-[60vw] h-[60vw] max-w-[400px] max-h-[400px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none z-0" />
 
-      {/* Floating Animated Checkers Pieces on Home Screen */}
       <AnimatePresence>
         {screen === 'HOME' && (
           <motion.div 
@@ -1252,7 +1107,6 @@ export default function App() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-0 pointer-events-none overflow-hidden"
           >
-            {/* Top Right Cyan Piece */}
             <motion.div 
               className="absolute top-[15%] right-[10%] w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 border-2 border-cyan-300/50 shadow-[inset_0_-4px_15px_rgba(0,0,0,0.3),_0_10px_30px_rgba(34,211,238,0.3)] opacity-60"
               animate={{ y: [0, -30, 0], rotate: [0, 15, 0] }}
@@ -1262,7 +1116,6 @@ export default function App() {
               <div className="absolute top-[15%] left-[15%] w-[30%] h-[30%] bg-white/30 rounded-full blur-[2px]" />
             </motion.div>
 
-            {/* Bottom Left White Piece */}
             <motion.div 
               className="absolute bottom-[20%] left-[5%] w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 border-2 border-white/80 shadow-[inset_0_-4px_15px_rgba(0,0,0,0.3),_0_10px_30px_rgba(255,255,255,0.3)] opacity-40"
               animate={{ y: [0, 40, 0], rotate: [0, -20, 0] }}
@@ -1275,7 +1128,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Global Compact Sticky Toolbar */}
       <div className="sticky top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex justify-between items-center bg-black/50 border border-white/20 rounded-full p-1.5 backdrop-blur-2xl shadow-xl mt-[max(0.75rem,env(safe-area-inset-top))] w-[calc(100%-2rem)] max-w-2xl shrink-0 transition-all duration-300">
         {screen === 'PLAYING' ? (
           <div className="flex items-center space-x-1 sm:space-x-1.5 space-x-reverse mx-1">
@@ -1324,7 +1176,7 @@ export default function App() {
               </button>
             )}
 
-            {currentUser?.is_admin && (
+            {currentUser?.is_admin === 1 && (
               <button
                 onClick={() => setShowAdminPanel(true)}
                 className="p-1 px-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-full text-[10px] font-black text-red-300 transition-all active:scale-95 cursor-pointer flex items-center space-x-1 space-x-reverse"
@@ -1385,7 +1237,6 @@ export default function App() {
               </h1>
             </div>
 
-            {/* Direct Play Action Modules - Beautiful Upgrade (More Compact and Sleek) */}
             <div className="w-full space-y-3 shrink-0" dir={isRtl ? 'rtl' : 'ltr'}>
               <button
                 onClick={() => {
@@ -1396,18 +1247,15 @@ export default function App() {
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 
-                {/* Icon wrapper - pinned absolutely to the right side */}
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-cyan-950/80 border border-cyan-400/40 rounded-lg text-cyan-400 group-hover:scale-105 group-hover:bg-cyan-400 group-hover:text-slate-900 transition-all duration-300 shrink-0 select-none">
                   <Cpu className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
 
-                {/* Subtext/Main text - beautifully centered and offset to prevent clashing */}
                 <div className="px-16 sm:px-20 w-full text-center flex flex-col items-center justify-center">
                   <p className="text-sm sm:text-base font-black text-white drop-shadow-md leading-tight">{dict.PLAY_AI}</p>
                   <p className="text-[10px] text-white/50 tracking-wide mt-1 leading-none">{dict.EASY} • {dict.MEDIUM} • {dict.HARD}</p>
                 </div>
 
-                {/* Chevron ornament - pinned absolutely to the left side */}
                 <ChevronRight className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-hover:text-cyan-400 transition-colors pointer-events-none ${isRtl ? '' : 'rotate-180'}`} />
               </button>
 
@@ -1420,22 +1268,18 @@ export default function App() {
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 
-                {/* Icon wrapper - pinned absolutely to the right side */}
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-indigo-950/80 border border-indigo-400/40 rounded-lg text-indigo-400 group-hover:scale-105 group-hover:bg-indigo-400 group-hover:text-slate-900 transition-all duration-300 shrink-0 select-none">
                   <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
 
-                {/* Subtext/Main text - beautifully centered and offset */}
                 <div className="px-16 sm:px-20 w-full text-center flex flex-col items-center justify-center">
                   <p className="text-sm sm:text-base font-black text-white drop-shadow-md leading-tight">{dict.PLAY_FRIEND}</p>
                   <p className="text-[10px] text-white/50 tracking-wide mt-1 leading-none">Local Pass & Play</p>
                 </div>
 
-                {/* Chevron ornament - pinned absolutely to the left side */}
                 <ChevronRight className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-hover:text-indigo-400 transition-colors pointer-events-none ${isRtl ? '' : 'rotate-180'}`} />
               </button>
 
-              {/* ONLINE LOBBY SYSTEM BUTTON */}
               {import.meta.env.VITE_ENABLE_ONLINE === 'show' && (
                 <button
                   onClick={() => {
@@ -1444,30 +1288,26 @@ export default function App() {
                       return;
                     }
                     setScreen('LOBBY');
-                    handleCreateRoom(); // Prepare dummy host room key instantly
+                    handleCreateRoom(); 
                   }}
                   className="relative group w-full flex items-center justify-center min-h-[72px] p-4 bg-gradient-to-r from-amber-950/30 to-yellow-950/20 hover:from-amber-950/50 hover:to-yellow-950/30 border border-yellow-600/35 hover:border-yellow-400 rounded-xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-sm overflow-hidden cursor-pointer text-center"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                   
-                  {/* Icon wrapper - pinned absolutely to the right side */}
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-amber-950 border border-amber-500/40 rounded-lg text-amber-400 group-hover:scale-105 group-hover:bg-amber-550 group-hover:text-amber-950 transition-all duration-300 shrink-0 select-none">
                     <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
                   </span>
 
-                  {/* Subtext/Main text - beautifully centered and offset */}
                   <span className="px-16 sm:px-20 w-full text-center flex flex-col items-center justify-center block">
                     <p className="text-sm sm:text-base font-black text-amber-200 drop-shadow-md leading-tight">{(dict as any).LOBBY_ROOM}</p>
                     <p className="text-[10px] text-amber-200/50 tracking-wide mt-1 leading-none">Online Matchmaking & Lobby</p>
                   </span>
 
-                  {/* Chevron ornament - pinned absolutely to the left side */}
                   <ChevronRight className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/30 group-hover:text-amber-400 transition-colors pointer-events-none ${isRtl ? '' : 'rotate-180'}`} />
                 </button>
               )}
             </div>
 
-            {/* Theme & Skins Dashboard Frame */}
             <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 space-y-5 backdrop-blur-md shrink-0">
               <div className="space-y-3">
                 <div className="flex items-center space-x-2 space-x-reverse mb-1 text-cyan-400">
@@ -1502,7 +1342,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Piece design Flag selector */}
               <div className="space-y-3 border-t border-white/5 pt-4">
                 <div className="flex items-center space-x-2 space-x-reverse text-emerald-400">
                   <Globe className="w-5 h-5 text-emerald-400" />
@@ -1540,7 +1379,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Game Statistics Dashboard Widget (Offline Persistence Saved) */}
             <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-4 backdrop-blur-md">
               <div className="flex items-center justify-between text-cyan-400">
                 <div className="flex items-center space-x-2 space-x-reverse">
@@ -1560,7 +1398,6 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                {/* Player 1 */}
                 <div className="bg-cyan-950/20 border border-cyan-500/10 p-2 rounded-xl">
                   <span className="text-[10px] text-cyan-300 font-bold block truncate">{lang === 'KU' ? 'تۆ / شین' : lang === 'AR' ? 'أنت / الأزرق' : 'Cyan'}</span>
                   <span className="text-lg font-black font-mono block text-white mt-1">{stats.p1Wins}</span>
@@ -1568,8 +1405,6 @@ export default function App() {
                     {stats.totalGames > 0 ? Math.round((stats.p1Wins / stats.totalGames) * 100) : 0}% {STATS_DICT[lang].WIN_RATE}
                   </span>
                 </div>
-
-                {/* Player 2 */}
                 <div className="bg-slate-900/30 border border-white/5 p-2 rounded-xl">
                   <span className="text-[10px] text-zinc-300 font-bold block truncate">{lang === 'KU' ? 'هاوڕێ / سپی' : lang === 'AR' ? 'صديق / الأبيض' : 'Friend'}</span>
                   <span className="text-lg font-black font-mono block text-white mt-1">{stats.p2Wins}</span>
@@ -1577,8 +1412,6 @@ export default function App() {
                     {stats.totalGames > 0 ? Math.round((stats.p2Wins / stats.totalGames) * 100) : 0}% {STATS_DICT[lang].WIN_RATE}
                   </span>
                 </div>
-
-                {/* AI */}
                 <div className="bg-indigo-950/20 border border-indigo-500/10 p-2 rounded-xl">
                   <span className="text-[10px] text-indigo-300 font-bold block truncate">{lang === 'KU' ? 'کۆمپیوتەر / AI' : lang === 'AR' ? 'الروبوت / AI' : 'AI'}</span>
                   <span className="text-lg font-black font-mono block text-white mt-1">{stats.aiWins}</span>
@@ -1588,7 +1421,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Progress visual indicator bar */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[10px] text-white/60 font-medium">
                   <span>{STATS_DICT[lang].TOTAL} {stats.totalGames}</span>
@@ -1632,7 +1464,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Structured Local Sub-page navigation buttons */}
             <div className="w-full grid grid-cols-2 gap-4">
               <button
                 onClick={() => setScreen('RULES_PAGE')}
@@ -1657,7 +1488,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Design & Programming (About Section) Trigger Button with Golden Flame */}
             <button
               onClick={() => setScreen('ABOUT')}
               className="w-full relative group flex items-center justify-between p-4 bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent hover:from-amber-500/20 hover:via-yellow-500/10 border border-amber-500/35 hover:border-amber-400 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.08)] overflow-hidden cursor-pointer"
@@ -1677,7 +1507,6 @@ export default function App() {
               <ChevronLeft size={18} className="text-amber-400/65 group-hover:text-amber-400 transition-colors group-hover:-translate-x-1 duration-300" />
             </button>
 
-            {/* Unified Play Store Promo Widget */}
             <div className="w-full bg-gradient-to-r from-cyan-950/20 to-indigo-950/20 border border-cyan-500/30 rounded-3xl p-5 text-center space-y-3 relative overflow-hidden shadow-2xl">
               <AlertCircle className="w-5 h-5 text-cyan-400 absolute top-4 right-4 animate-bounce" />
               <p className="text-sm font-bold text-white/90 px-4">
@@ -1697,7 +1526,6 @@ export default function App() {
           </motion.div>
         )}
 
-        {/* --- LOCAL DEDICATED RULES PAGE --- */}
         {screen === 'RULES_PAGE' && (
           <motion.div 
             key="rules"
@@ -1731,7 +1559,6 @@ export default function App() {
           </motion.div>
         )}
 
-        {/* --- LOCAL DEDICATED PRIVACY POLICY PAGE --- */}
         {screen === 'POLICY_PAGE' && (
           <motion.div 
             key="policy"
@@ -1911,7 +1738,6 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.95 }}
             className="z-10 flex flex-col w-full h-full max-w-3xl px-1 sm:px-2 flex-1 items-center justify-center space-y-2 sm:space-y-3 relative"
           >
-            {/* Absolute Floating Emojis Screen Overlay */}
             <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden flex items-end justify-center">
               <AnimatePresence>
                 {floatingEmojis.map((item) => (
@@ -1929,7 +1755,6 @@ export default function App() {
               </AnimatePresence>
             </div>
 
-            {/* Coach Hint Top Notification Banner */}
             <AnimatePresence>
               {coachHintMessage && (
                 <motion.div
@@ -1944,7 +1769,6 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {/* Action Bar: Timer, AI level pill, and AI Hint control in active play */}
             <div className="w-full flex justify-between items-center px-2 shrink-0 select-none z-20">
               <div className="flex items-center space-x-1.5 space-x-reverse">
                 <div className="flex items-center space-x-1.5 space-x-reverse bg-black/40 border border-white/5 py-1 px-3 rounded-full text-xs font-bold text-white">
@@ -1994,9 +1818,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* Top Avatar (Player 2 / White / Opponent / AI) - Styled to reflect White stone color */}
             <div className="w-full flex items-center justify-center gap-2 sm:gap-4 relative select-none">
-              {/* Speech Bubble for P2 */}
               <AnimatePresence>
                 {chatMessage?.sender === 'WHITE' && (
                   <motion.div
@@ -2011,7 +1833,6 @@ export default function App() {
                 )}
               </AnimatePresence>
  
-              {/* AI Badge Details Card with corresponding Turn Glow */}
               <div className={`px-3.5 py-2 rounded-2xl border-2 transition-all duration-300 flex items-center space-x-2.5 sm:space-x-3.5 space-x-reverse ${
                 gameState.turn === 'WHITE' && !gameState.winner
                   ? 'bg-white/10 border-white shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105' 
@@ -2026,7 +1847,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* AI Eaten Stones (Cyan stones eaten by the AI) - Aligned nicely in a small row next to it */}
               <div className="flex flex-col items-start gap-0.5 p-2 bg-cyan-950/25 border border-cyan-400/10 rounded-xl max-w-[130px] shrink-0">
                 <span className="text-[8px] sm:text-[9px] font-black text-cyan-300/60 uppercase select-none">
                   {lang === 'KU' ? `خواراوە (x${whiteCaptures})` : `Eaten (x${whiteCaptures})`}
@@ -2046,7 +1866,6 @@ export default function App() {
               </div>
             </div>
  
-            {/* Playable Checkers board area */}
             <div className="w-full flex justify-center flex-none">
               <Board 
                 gameState={gameState} 
@@ -2070,9 +1889,7 @@ export default function App() {
               />
             </div>
  
-            {/* Bottom Avatar (Player 1 / Cyan / User) - Styled with Cyan color to match Cyan stones and Skilled Avatar 🥷🏽 */}
             <div className="w-full flex items-center justify-center gap-2 sm:gap-4 relative select-none">
-              {/* Speech Bubble for P1 */}
               <AnimatePresence>
                 {chatMessage?.sender === 'CYAN' && (
                   <motion.div
@@ -2087,7 +1904,6 @@ export default function App() {
                 )}
               </AnimatePresence>
  
-              {/* User Badge Details Card with corresponding Turn Glow */}
               <div className={`px-3.5 py-2 rounded-2xl border-2 transition-all duration-300 flex items-center space-x-2.5 sm:space-x-3.5 space-x-reverse ${
                 gameState.turn === 'CYAN' && !gameState.winner
                   ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.25)] scale-105' 
@@ -2102,7 +1918,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* User Eaten Stones (White stones eaten by the User) - Aligned nicely in a small row next to it */}
               <div className="flex flex-col items-start gap-0.5 p-2 bg-stone-900/40 border border-stone-100/10 rounded-xl max-w-[130px] shrink-0">
                 <span className="text-[8px] sm:text-[9px] font-black text-stone-300/60 uppercase select-none">
                   {lang === 'KU' ? `خواراوە (x${cyanCaptures})` : `Eaten (x${cyanCaptures})`}
@@ -2122,8 +1937,6 @@ export default function App() {
               </div>
             </div>
 
-
-            {/* Collapsible Local Emojis & Quick Chat Panel for active screen */}
             <div className="w-full bg-black/40 border border-white/10 rounded-2xl p-2.5 sm:p-3 space-y-2 select-none shrink-0 z-30 font-sans">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] sm:text-xs uppercase tracking-wider text-cyan-400 font-bold">{(dict as any).CHAT_SEND}</span>
@@ -2133,7 +1946,6 @@ export default function App() {
                       key={em}
                       onClick={() => {
                         triggerFloatingEmoji(em);
-                        // Make AI or current turn player react
                         sendQuickChatMessage(gameState.turn, em);
                       }}
                       className="text-lg bg-white/5 hover:bg-white/15 w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-90 cursor-pointer"
@@ -2144,14 +1956,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Kurdish Preset Phrases Row */}
               <div className="flex gap-1.5 overflow-x-auto py-1 no-scrollbar select-none">
                 {QUICK_PHRASES[lang].map((phrase, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
                       sendQuickChatMessage(gameState.turn, phrase);
-                      // Auto throw associated emojis based on keywords or idx
                       const ems = ['👏', '⚡', '🍀', '💀', '💪'];
                       triggerFloatingEmoji(ems[idx % ems.length]);
                     }}
@@ -2173,7 +1983,6 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.95 }}
             className="z-10 flex flex-col w-full h-full max-w-3xl px-1 sm:px-2 flex-1 items-center justify-center space-y-3"
           >
-            {/* Header / Nav */}
             <div className="w-full flex items-center justify-between px-2 shrink-0">
               <button 
                 onClick={() => {
@@ -2188,10 +1997,8 @@ export default function App() {
               <h2 className="text-xl font-black text-amber-400 font-sans tracking-wide">{(dict as any).REPLAY_MODE} 🔄</h2>
             </div>
 
-            {/* Replay board status screen showing active state */}
             {replayIndex !== null && matchStateHistory[replayIndex] && (
               <div className="w-full space-y-4">
-                {/* Visual Tracker Bar */}
                 <div className="w-full bg-black/40 border border-white/5 p-3 rounded-2xl flex items-center justify-between font-mono text-center text-xs">
                   <div className="flex items-center space-x-2 space-x-reverse">
                     <span className="text-white/40">Move:</span>
@@ -2205,7 +2012,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Passive non-interactive board showing exactly the saved position! */}
                 <div className="w-full flex justify-center">
                   <Board
                     gameState={{
@@ -2216,9 +2022,9 @@ export default function App() {
                       winner: matchStateHistory[replayIndex].winner || null,
                       history: []
                     }}
-                    dispatch={() => {}} // passive
+                    dispatch={() => {}} 
                     theme={theme}
-                    disabled={true} // passive
+                    disabled={true} 
                     p1Name={p1}
                     p2Name={p2}
                     onRestart={() => {}}
@@ -2227,7 +2033,6 @@ export default function App() {
                   />
                 </div>
 
-                {/* Step forward and step backward elegant buttons */}
                 <div className="w-full grid grid-cols-3 gap-3">
                   <button
                     disabled={replayIndex === 0}
@@ -2242,7 +2047,6 @@ export default function App() {
 
                   <button
                     onClick={() => {
-                      // Autoplay loop from current index to the end
                       let activeIdx = replayIndex;
                       const interval = setInterval(() => {
                         if (activeIdx < matchStateHistory.length - 1) {
@@ -2289,7 +2093,6 @@ export default function App() {
             className="z-10 flex flex-col w-full max-w-md px-6 pt-4 space-y-6 shrink-0 relative text-right"
             dir="rtl"
           >
-            {/* Header */}
             <div className="flex items-center space-x-4 space-x-reverse mb-2 justify-start">
               <button 
                 onClick={() => setScreen('HOME')} 
@@ -2300,7 +2103,6 @@ export default function App() {
               <h2 className="text-3xl font-black text-amber-400">{(dict as any).LOBBY_ROOM} 🌐</h2>
             </div>
 
-            {/* Main Interactive Panel */}
             <div className="bg-black/40 border border-white/10 p-5 rounded-3xl space-y-5 backdrop-blur-xl">
               <div className="text-right space-y-1">
                 <p className="text-xs tracking-wider text-cyan-400 uppercase font-black">
@@ -2313,7 +2115,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Box 1: Host Room */}
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-3">
                 <span className="text-[11px] font-bold text-amber-300 block text-right">
                   {lang === 'KU' ? '١. ژوور دروست بکە و کۆد بۆ هاوڕێکەت بنێرە:' : '1. Create Room & Share Code:'}
@@ -2366,7 +2167,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Box 2: Join Room */}
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-3">
                 <span className="text-[11px] font-bold text-cyan-300 block text-right">
                   {lang === 'KU' ? '٢. چوونەژوورە بە نووسینی کۆد:' : '2. Enter Shared Invite Code:'}
@@ -2407,7 +2207,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Box 3: Registered Online Users challenge - highly realistic */}
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl space-y-3">
                 <span className="text-[11px] font-bold text-indigo-300 block text-right">
                   {lang === 'KU' ? '٣. مەکۆی یاریزانانی بەردەست:' : '3. Registered Challenger Circle:'}
@@ -2445,7 +2244,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Peer-to-peer simulator guidelines */}
             <div className="text-[11px] text-white/40 leading-relaxed text-right font-medium bg-white/5 border border-white/5 rounded-2xl p-3.5">
               <span>⚡ {lang === 'KU' ? 'لیستی بەستراوەیی کڵاودی یاریەکە کارایە بە تەواوی لە رێگەی گێڕانەوەی ڕوندە کورتەکانی کڵاودفلێر.' : 'Standard direct peer-to-peer messaging channel built over low-latency server relays.'}</span>
             </div>
@@ -2457,7 +2255,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Auto Matchmaking Overlay */}
       <AnimatePresence>
         {showAutoMatch && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-lg">
@@ -2521,7 +2318,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Real-time Incoming Challenge Modal */}
       <AnimatePresence>
         {incomingInvite && (
           <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -2561,7 +2357,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Beautiful Dynamic Toast Notifications Stack */}
       <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4 flex flex-col gap-2.5 pointer-events-none">
         <AnimatePresence>
           {toasts.map(t => (
@@ -2590,7 +2385,6 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* Secret Dev/Admin Bypass Modal */}
       <AnimatePresence>
         {showAdminBypass && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -2666,20 +2460,19 @@ export default function App() {
                     
                     if (adminUser === expectedUser && bypassPasscode === expectedPass) {
                       if (currentUser) {
-                        const updatedUser = { ...currentUser, is_admin: true };
+                        const updatedUser = { ...currentUser, is_admin: 1 };
                         setCurrentUser(updatedUser);
                         localStorage.setItem('dama_current_user_v2', JSON.stringify(updatedUser));
                         
-                        // Also make sure it's in local DB
                         const rawUsers = localStorage.getItem('dama_users_db_v2') || '[]';
                         try {
                           let parsedUsers = JSON.parse(rawUsers);
                           if (!Array.isArray(parsedUsers)) parsedUsers = [];
                           const exists = parsedUsers.find((u: any) => u.id === currentUser.id);
                           if (exists) {
-                            exists.is_admin = true;
+                            exists.is_admin = 1;
                           } else {
-                            parsedUsers.push({ ...currentUser, is_admin: true });
+                            parsedUsers.push({ ...currentUser, is_admin: 1 });
                           }
                           localStorage.setItem('dama_users_db_v2', JSON.stringify(parsedUsers));
                         } catch (e) {}
@@ -2690,7 +2483,6 @@ export default function App() {
                         setShowAdminPanel(true);
                         showNotification('پیرۆزە سەرپەرشتیار! ئێستە تۆ تەنها ئەدمینی یارییەکەی 👑', 'success');
                       } else {
-                        // Open as temporary guest admin
                         setShowAdminBypass(false);
                         setAdminUser('');
                         setBypassPasscode('');
@@ -2711,7 +2503,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Safari iOS PWA Guide Trigger Modal Overlay */}
       <AnimatePresence>
         {showIosPrompt && (
           <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -2746,7 +2537,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Google Chrome & Android Native App Install prompt banner/button */}
       <AnimatePresence>
         {showChromeInstall && deferredPrompt && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] w-full max-w-md px-4 pointer-events-none">
@@ -2792,7 +2582,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Auth System Modal Overlay */}
       <AnimatePresence>
         {showAuthModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -2819,7 +2608,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Admin Panel Modal Overlay */}
       <AnimatePresence>
         {showAdminPanel && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
@@ -2833,7 +2621,6 @@ export default function App() {
                 lang={lang}
                 onClose={() => {
                   setShowAdminPanel(false);
-                  // Refresh currentUser session to apply real-time changes
                   const rawUser = localStorage.getItem('dama_current_user_v2');
                   const rawDB = localStorage.getItem('dama_users_db_v2');
                   if (rawUser && rawDB) {
@@ -2854,7 +2641,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* AFK Loss Notification Overlay */}
       <AnimatePresence>
         {afkLossOccurred && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-lg text-right select-none">
