@@ -5,8 +5,24 @@ function cloneBoard(board: BoardType): BoardType {
   return board.map(row => row.map(cell => cell ? { ...cell } : null));
 }
 
-function getAllValidMoves(board: BoardType, player: Player): { r: number, c: number, move: Move }[] {
+function getAllValidMoves(board: BoardType, player: Player, mustJumpPos?: Position | null): { r: number, c: number, move: Move }[] {
   let moves: { r: number, c: number, move: Move }[] = [];
+  
+  if (mustJumpPos) {
+    // If locked into a multi-jump, ONLY this piece can move, and it MUST jump.
+    const { r, c } = mustJumpPos;
+    const piece = board[r][c];
+    if (piece && piece.player === player) {
+      const pieceMoves = getMovesForPiece(board, r, c);
+      for (const m of pieceMoves) {
+        if (m.type === 'jump') {
+          moves.push({ r, c, move: m });
+        }
+      }
+    }
+    return moves;
+  }
+
   const mustJump = hasAnyJumps(board, player);
 
   for (let r = 0; r < 8; r++) {
@@ -261,7 +277,7 @@ export function getAIMove(
     }
   }
 
-  // 2. MEDIUM difficulty - Solid intermediate, 20% random and 80% Minimax at depth 2
+  // 2. MEDIUM difficulty - Solid intermediate, 20% random and 80% Minimax at depth 1
   if (difficulty === 'MEDIUM') {
     if (Math.random() < 0.20) {
       const selected = moves[Math.floor(Math.random() * moves.length)];
@@ -283,9 +299,9 @@ export function getAIMove(
       const oppPlayer: Player = player === 'CYAN' ? 'WHITE' : 'CYAN';
       let val: number;
       if (turnEnded) {
-        val = minimax(nextBoard, 2, -Infinity, Infinity, false, oppPlayer, player, null);
+        val = minimax(nextBoard, 1, -Infinity, Infinity, false, oppPlayer, player, null);
       } else {
-        val = minimax(nextBoard, 2, -Infinity, Infinity, true, player, player, nextTurnMustJump);
+        val = minimax(nextBoard, 1, -Infinity, Infinity, true, player, player, nextTurnMustJump);
       }
 
       if (val > bestVal) {
@@ -300,7 +316,7 @@ export function getAIMove(
     return { r: selected.r, c: selected.c, dest: selected.move.dest };
   }
 
-  // 3. HARD difficulty - Minimax at depth 2 (Highly competitive and professional)
+  // 3. HARD difficulty - Minimax at depth 1 (Highly competitive and professional)
   if (difficulty === 'HARD') {
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
@@ -317,9 +333,9 @@ export function getAIMove(
       const oppPlayer: Player = player === 'CYAN' ? 'WHITE' : 'CYAN';
       let val: number;
       if (turnEnded) {
-        val = minimax(nextBoard, 2, -Infinity, Infinity, false, oppPlayer, player, null);
+        val = minimax(nextBoard, 1, -Infinity, Infinity, false, oppPlayer, player, null);
       } else {
-        val = minimax(nextBoard, 2, -Infinity, Infinity, true, player, player, nextTurnMustJump);
+        val = minimax(nextBoard, 1, -Infinity, Infinity, true, player, player, nextTurnMustJump);
       }
 
       if (val > bestVal) {
@@ -339,8 +355,8 @@ export function getAIMove(
     let bestVal = -Infinity;
     let bestMoves: typeof moves = [];
 
-    // Safe target depth to avoid freezing the main React thread (reduced to 3)
-    const targetDepth = 3;
+    // Safe target depth to prevent UI thread freezing.
+    const targetDepth = 2; // Reduced from 3 to 2
 
     for (const m of moves) {
       const { board: nextBoard, nextTurnMustJump, turnEnded } = applyMoveSimulated(

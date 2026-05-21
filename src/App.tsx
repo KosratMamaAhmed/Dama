@@ -342,8 +342,10 @@ export default function App() {
         });
 
         // Trigger Token economy update for Online (Friend/Lobby) matches
-        if (mode !== 'AI' && currentUser) {
-          const isWinner = gameState.winner === 'CYAN';
+        if (mode !== 'AI' && currentUser && onlineRole) {
+          let isWinner = false;
+          if (onlineRole === 'HOST' && gameState.winner === 'CYAN') isWinner = true;
+          if (onlineRole === 'GUEST' && gameState.winner === 'WHITE') isWinner = true;
           
           if (isWinner) {
             const tokenChange = 20;
@@ -375,10 +377,10 @@ export default function App() {
     }
   }, [gameState.winner, mode, statsUpdated, currentUser]);
 
-  // Reset lastMoveTimestamp when board state shifts or turns update
+  // Reset lastMoveTimestamp when board state shifts or turns update, or user logs in/opens modal
   useEffect(() => {
     setLastMoveTimestamp(Date.now());
-  }, [gameState.board, gameState.turn]);
+  }, [gameState.board, gameState.turn, currentUser, showAuthModal]);
 
   // 4 minutes AFK Inactivity checking routine
   useEffect(() => {
@@ -527,6 +529,7 @@ export default function App() {
               setIsOnlineMatch(true);
               setScreen('PLAYING');
               handleFullReset();
+              deductEntryTokens();
             }, 1200);
           }
         }
@@ -551,6 +554,7 @@ export default function App() {
               setIsOnlineMatch(true);
               setScreen('PLAYING');
               handleFullReset();
+              deductEntryTokens();
             }, 1200);
           }
         }
@@ -584,6 +588,7 @@ export default function App() {
               setOnlineRole('HOST');
               setScreen('PLAYING');
               handleFullReset();
+              deductEntryTokens();
             }, 1200);
           }
         }
@@ -592,6 +597,16 @@ export default function App() {
         if (data.type === 'GAME_STATE_UPDATE') {
           if (isOnlineMatch && data.roomCode === roomCode) {
             dispatch({ type: 'HYDRATE_STATE', payload: data.gameState });
+            if (soundEnabled) {
+              try { playSound('move'); } catch(e){}
+            }
+          }
+        }
+
+        // 6. Remote Click sync
+        if (data.type === 'REMOTE_CLICK') {
+          if (isOnlineMatch && data.roomCode === roomCode) {
+            dispatch({ type: 'SELECT_OR_MOVE', payload: data.payload });
             if (soundEnabled) {
               try { playSound('move'); } catch(e){}
             }
@@ -645,30 +660,25 @@ export default function App() {
     } catch(e) {}
   }, [roomCode, onlineRole, isOnlineMatch, currentUser, soundEnabled, lang]);
 
-  // Sync game states over BroadcastChannel on movements
-  useEffect(() => {
-    if (isOnlineMatch && onlineRole && roomCode) {
-      // Determine if the transition change was made by us
-      const isMyMoveTransition = 
-        (onlineRole === 'HOST' && gameState.turn === 'WHITE') ||
-        (onlineRole === 'GUEST' && gameState.turn === 'CYAN');
+  // Sync game states over BroadcastChannel on movements is now handled via customDispatch (REMOTE_CLICK)
 
-      if (isMyMoveTransition) {
-        try {
-          const bc = new BroadcastChannel('dama_multiplayer_channel');
-          bc.postMessage({
-            type: 'GAME_STATE_UPDATE',
-            roomCode: roomCode,
-            sender: currentUser?.username || 'Opponent',
-            gameState: gameState
-          });
-          bc.close();
-        } catch (e) {}
-      }
+  // Sophisticated custom dispatcher to capture local player's moves and synchronize via BroadcastChannel
+  const customDispatch = (action: any) => {
+    dispatch(action);
+
+    // If it's a click action and we are playing online, broadcast it to the opponent!
+    if (action.type === 'SELECT_OR_MOVE' && isOnlineMatch && onlineRole && roomCode) {
+      try {
+        const bc = new BroadcastChannel('dama_multiplayer_channel');
+        bc.postMessage({
+          type: 'REMOTE_CLICK',
+          roomCode: roomCode,
+          payload: action.payload
+        });
+        bc.close();
+      } catch (e) {}
     }
-  }, [gameState.board, gameState.turn, isOnlineMatch, onlineRole, roomCode]);
-
-  // Keep track of board positions for the current match to feed the Replay system
+  };
   useEffect(() => {
     if (screen === 'PLAYING') {
       setMatchStateHistory((prev) => {
@@ -687,6 +697,37 @@ export default function App() {
     setSeconds(0);
     setMatchStateHistory([]);
     setCoachHintsLeft(5);
+  };
+
+  const deductEntryTokens = () => {
+    if (currentUser) {
+      const updatedTokens = Math.max(0, currentUser.tokens - 10);
+      setCurrentUser(prev => prev ? { ...prev, tokens: updatedTokens } : null);
+      
+      // Update local storage
+      const rawDB = localStorage.getItem('dama_users_db_v2');
+      if (rawDB) {
+        try {
+          const db = JSON.parse(rawDB);
+          const idx = db.findIndex((u: any) => u.id === currentUser.id);
+          if (idx > -1) {
+            db[idx].tokens = updatedTokens;
+            localStorage.setItem('dama_users_db_v2', JSON.stringify(db));
+          }
+        } catch (e) {}
+      }
+
+      fetch(`${BACKEND_URL}/api/game/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, isWinner: false })
+      }).then(res => res.json())
+        .then((data: any) => {
+          if (data.success && typeof data.newTokens === 'number') {
+            setCurrentUser(prev => prev ? { ...prev, tokens: data.newTokens } : null);
+          }
+        }).catch(() => {});
+    }
   };
 
   const startGame = () => {
@@ -842,8 +883,8 @@ export default function App() {
 
   // Join Room with a code
   const handleJoinRoom = () => {
-    if (!typedRoomCode || typedRoomCode.length < 4) {
-      setLobbyError(lang === 'KU' ? 'کۆدەکە نادروستە!' : lang === 'AR' ? 'الرمز غير صالح!' : 'Invalid code!');
+    if (!typedRoomCode || typedRoomCode.length !== 4) {
+      setLobbyError(lang === 'KU' ? 'کۆدەکە دەبێت ٤ ژمارە بێت!' : 'Code must be 4 digits!');
       return;
     }
     setLobbyError('');
@@ -853,16 +894,19 @@ export default function App() {
     setOnlineRole('GUEST');
     setIsOnlineMatch(true);
 
-    try {
-      const bc = new BroadcastChannel('dama_multiplayer_channel');
-      // Broadcast peer join request
-      bc.postMessage({
-        type: 'PEER_JOIN_REQUEST',
-        roomCode: typedRoomCode,
-        guestUser: currentUser ? currentUser.username : (lang === 'KU' ? 'مێوانی کاتی' : 'Guest Player')
-      });
-      bc.close();
-    } catch (e) {}
+    // Wait a brief moment for React state to batch and update the broadcast listeners
+    setTimeout(() => {
+      try {
+        const bc = new BroadcastChannel('dama_multiplayer_channel');
+        // Broadcast peer join request
+        bc.postMessage({
+          type: 'PEER_JOIN_REQUEST',
+          roomCode: typedRoomCode,
+          guestUser: currentUser ? currentUser.username : (lang === 'KU' ? 'مێوانی کاتی' : 'Guest Player')
+        });
+        bc.close();
+      } catch (e) {}
+    }, 400);
     
     // Timeout fallback: If no matching host responds within 6 seconds, warn user
     setTimeout(() => {
@@ -918,6 +962,7 @@ export default function App() {
       setIsOnlineMatch(true);
       setScreen('PLAYING');
       handleFullReset();
+      deductEntryTokens();
     }, 1200);
   };
 
@@ -947,41 +992,15 @@ export default function App() {
   };
 
   const handleStartLobbyMatch = () => {
-    // If user has insufficient tokens, warn them
-    if (currentUser && currentUser.tokens < 10) {
-      alert(lang === 'KU' ? 'تۆکنی پێویستت نییە بۆ یاریکردن! لانی کەم پێویستت بە ١٠ تۆکنە.' : 'Insufficient tokens! You need at least 10 tokens to play.');
-      return;
-    }
-
     // Assign names
     const myName = currentUser ? currentUser.username : (lang === 'KU' ? 'کۆسرەت' : 'Kosret');
     setPlayer1Name(`${myName} (${lang === 'KU' ? 'تۆ' : 'You'})`);
     setPlayer2Name(lang === 'KU' ? 'هاوڕێی میوان 👤' : 'Guest Friend 👤');
     
-    // Deduct 10 tokens up front (if won they will get 20 back: meaning net +10 tokens)
-    if (currentUser) {
-      const updatedTokens = Math.max(0, currentUser.tokens - 10);
-      const updatedUser = { ...currentUser, tokens: updatedTokens };
-      setCurrentUser(updatedUser);
-
-      // Sync upfront deduction to Cloudflare D1
-      fetch(`${BACKEND_URL}/api/game/end`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          isWinner: false
-        })
-      }).then(res => res.json())
-        .then((data: any) => {
-          if (data.success && typeof data.newTokens === 'number') {
-            setCurrentUser(prev => prev ? { ...prev, tokens: data.newTokens } : null);
-          }
-        }).catch(err => console.error("Error syncing upfront token deduction:", err));
-    }
-
     setMode('FRIEND');
     setScreen('PLAYING');
+    setIsOnlineMatch(false);
+    setOnlineRole(null);
     handleFullReset();
   };
 
@@ -1832,7 +1851,7 @@ export default function App() {
             <div className="w-full flex justify-center flex-none">
               <Board 
                 gameState={gameState} 
-                dispatch={dispatch} 
+                dispatch={customDispatch} 
                 theme={theme} 
                 disabled={
                   (mode === 'AI' && gameState.turn === 'WHITE') ||
@@ -2160,20 +2179,20 @@ export default function App() {
                     : 'Get the invite code from your partner and enter it below.'}
                 </p>
 
-                <div className="flex space-x-2 space-x-reverse">
+                <div className="flex space-x-2 space-x-reverse max-w-full">
                   <input
                     type="text"
                     maxLength={4}
                     value={typedRoomCode}
                     onChange={(e) => setTypedRoomCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="e.g. 5489"
-                    className="flex-1 bg-black/40 border border-white/15 rounded-xl text-center py-2 text-lg text-white font-mono tracking-widest focus:outline-none focus:border-cyan-400 placeholder-white/20"
+                    className="flex-1 min-w-0 bg-black/40 border border-white/15 rounded-xl text-center py-2 text-lg text-white font-mono tracking-widest focus:outline-none focus:border-cyan-400 placeholder-white/20"
                   />
                   <button
-                    disabled={typedRoomCode.length < 4 || isLobbySearching}
+                    disabled={typedRoomCode.length !== 4 || isLobbySearching}
                     onClick={handleJoinRoom}
-                    className={`px-5 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:pointer-events-none ${
-                      typedRoomCode.length < 4 || isLobbySearching
+                    className={`shrink-0 px-4 sm:px-5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:pointer-events-none ${
+                      typedRoomCode.length !== 4 || isLobbySearching
                         ? 'bg-white/5 text-white/40 border border-white/5'
                         : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.4)] font-black animate-pulse hover:animate-none'
                     }`}
