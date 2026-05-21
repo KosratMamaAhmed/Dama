@@ -3,22 +3,21 @@ import { initialGameState, gameReducer } from './store/gameReducer';
 import { GameMode, Difficulty, BoardTheme } from './types';
 import { Language } from './translations';
 
-// Components
+// هێنانی پێکهاتەکان
 import HomeMenu from './components/HomeMenu';
 import MatchSetup from './components/MatchSetup';
 import GameBoardArea from './components/GameBoardArea';
 
-export type ScreenType = 'HOME' | 'SETUP_AI' | 'SETUP_FRIEND' | 'PLAYING' | 'RULES_PAGE' | 'POLICY_PAGE' | 'ABOUT';
+export type ScreenType = 'HOME' | 'SETUP_AI' | 'SETUP_FRIEND' | 'PLAYING';
 
 export default function App() {
-  // دۆخی سەرەکی یارییەکە
   const [screen, setScreen] = useState<ScreenType>('HOME');
   const [lang, setLang] = useState<Language>('KU');
   const [mode, setMode] = useState<GameMode>('AI');
   const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
   const [theme, setTheme] = useState<BoardTheme>('CLASSIC');
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [pieceFlag, setPieceFlag] = useState<string>('CLASSIC');
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
@@ -26,7 +25,7 @@ export default function App() {
 
   const [gameState, dispatch] = useReducer(gameReducer, initialGameState);
 
-  // ڕێکخستنی کاتژمێر
+  // کاتژمێری یاری
   useEffect(() => {
     let timerId: any = null;
     if (screen === 'PLAYING' && !gameState.winner) {
@@ -37,14 +36,16 @@ export default function App() {
     return () => clearInterval(timerId);
   }, [screen, gameState.winner]);
 
+  // دەستپێکردن و ڕیفرێشکردنی تەختەی یاری
+  const startGame = () => {
+    dispatch({ type: 'RESET_GAME' }); // ئەمە زۆر گرنگە بۆ ئەوەی تەختەکە دەربکەوێت!
+    setSeconds(0);
+    setScreen('PLAYING');
+  };
+
   const handleFullReset = () => {
     dispatch({ type: 'RESET_GAME' });
     setSeconds(0);
-  };
-
-  const startGame = () => {
-    handleFullReset();
-    setScreen('PLAYING');
   };
 
   return (
@@ -52,7 +53,7 @@ export default function App() {
       dir={lang === 'KU' || lang === 'AR' ? 'rtl' : 'ltr'} 
       className="min-h-[100dvh] w-full bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-indigo-950 font-sans text-white selection:bg-cyan-500/30 overflow-x-hidden relative flex flex-col items-center pb-[max(3rem,env(safe-area-inset-bottom))]"
     >
-      {/* پاشبنەمای ئەنیمەیشنی مۆدێرن */}
+      {/* ئەنیمەیشنی پاشبنەما (Glassmorphism) */}
       <div className="fixed top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none z-0" />
 

@@ -1,110 +1,92 @@
-import { BoardType, Move, Player, Position } from './types';
+import { BoardType, Move, Player, Position, Piece } from './types';
 
 export function inBounds(r: number, c: number): boolean {
   return r >= 0 && r < 8 && c >= 0 && c < 8;
 }
 
 export function getInitialBoard(): BoardType {
-  const board: BoardType = Array(8)
-    .fill(null)
-    .map(() => Array(8).fill(null));
-
+  const board: BoardType = Array(8).fill(null).map(() => Array(8).fill(null));
   let idCounter = 0;
-  const gameSeed = Date.now().toString(36);
-
-  // Player 2 (WHITE) top rows (moves down)
+  
+  // یاریزانی دووەم (سپی) - سەرەوە
   for (let r = 1; r <= 2; r++) {
-    for (let c = 0; c < 8; c++) board[r][c] = { id: `w-${gameSeed}-${idCounter++}`, player: 'WHITE', type: 'MAN' };
+    for (let c = 0; c < 8; c++) board[r][c] = { id: `w-${idCounter++}`, player: 'WHITE', type: 'MAN' };
   }
-
-  // Player 1 (CYAN) bottom rows (moves up)
+  // یاریزانی یەکەم (شین) - خوارەوە
   for (let r = 5; r <= 6; r++) {
-    for (let c = 0; c < 8; c++) board[r][c] = { id: `c-${gameSeed}-${idCounter++}`, player: 'CYAN', type: 'MAN' };
+    for (let c = 0; c < 8; c++) board[r][c] = { id: `c-${idCounter++}`, player: 'CYAN', type: 'MAN' };
   }
-
   return board;
 }
 
 export function getMovesForPiece(board: BoardType, r: number, c: number): Move[] {
   const piece = board[r][c];
   if (!piece) return [];
-  const isCyan = piece.player === 'CYAN';
-  const dirs = piece.type === 'KING'
-    ? [[1, 0], [-1, 0], [0, 1], [0, -1]]
-    // CYAN moves up (r-1), WHITE moves down (r+1). Both can move left/right (0, 1) and (0, -1)
-    : (isCyan ? [[-1, 0], [0, 1], [0, -1]] : [[1, 0], [0, 1], [0, -1]]);
-
   const moves: Move[] = [];
-
+  
   if (piece.type === 'MAN') {
+    // جووڵەی بەردی ئاسایی
+    const forward = piece.player === 'CYAN' ? -1 : 1;
+    const dirs = [[forward, 0], [0, 1], [0, -1]]; // پێشەوە، ڕاست، چەپ
+    
+    // پشکنینی جووڵەی ئاسایی
     for (const [dr, dc] of dirs) {
-      // Step
-      const sr = r + dr;
-      const sc = c + dc;
-      if (inBounds(sr, sc) && board[sr][sc] === null) {
-        moves.push({ type: 'step', dest: { r: sr, c: sc } });
+      const nr = r + dr, nc = c + dc;
+      if (inBounds(nr, nc) && !board[nr][nc]) {
+        moves.push({ type: 'step', dest: { r: nr, c: nc } });
       }
-      // Jump
-      const jr = r + 2 * dr;
-      const jc = c + 2 * dc;
-      if (inBounds(jr, jc) && board[jr][jc] === null) {
-        const midR = r + dr;
-        const midC = c + dc;
-        const midPiece = board[midR][midC];
-        if (midPiece && midPiece.player !== piece.player) {
-          moves.push({ type: 'jump', dest: { r: jr, c: jc }, captured: { r: midR, c: midC } });
+    }
+    // پشکنینی خواردن (بازدان)
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr, nc = c + dc;
+      const jumpR = r + dr * 2, jumpC = c + dc * 2;
+      if (inBounds(jumpR, jumpC)) {
+        const midPiece = board[nr][nc];
+        if (midPiece && midPiece.player !== piece.player && !board[jumpR][jumpC]) {
+          moves.push({ type: 'jump', dest: { r: jumpR, c: jumpC }, captured: { r: nr, c: nc } });
         }
       }
     }
-  } else {
-    // KING Logic
+  } else if (piece.type === 'KING') {
+    // جووڵەی شا (پارێزراو لە لۆپی بێکۆتا)
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]]; // هەر چوار لا
+    
     for (const [dr, dc] of dirs) {
-      let dist = 1;
-      let foundEnemy: Position | null = null;
-      while (true) {
-        const cr = r + dr * dist;
-        const cc = c + dc * dist;
-        if (!inBounds(cr, cc)) break;
-        const curr = board[cr][cc];
-
-        if (!foundEnemy) {
-          if (curr === null) {
-            moves.push({ type: 'step', dest: { r: cr, c: cc } });
-          } else if (curr.player !== piece.player) {
-            foundEnemy = { r: cr, c: cc };
+      let step = 1;
+      let pieceSeen = false;
+      let capturedPos: Position | null = null;
+      
+      while (step < 8) { // پارێزەری سەلامەتی: هەرگیز لە ٨ هەنگاو زیاتر ناڕوات بۆ ڕێگریکردن لە جامبوون
+        const nr = r + dr * step;
+        const nc = c + dc * step;
+        
+        if (!inBounds(nr, nc)) break; // ئەگەر لە تەختە دەرچوو، بوەستە
+        
+        const currentSquare = board[nr][nc];
+        
+        if (!pieceSeen) {
+          if (!currentSquare) {
+            moves.push({ type: 'step', dest: { r: nr, c: nc } }); // دەتوانێت بڕواتە خانەی خاڵی
+          } else if (currentSquare.player !== piece.player) {
+            pieceSeen = true; // نەیارێکی بینی!
+            capturedPos = { r: nr, c: nc };
           } else {
-            break; // Blocked by friendly piece
+            break; // بەردی خۆی بینی، ڕێگاکە داخراوە
           }
         } else {
-          // Once an enemy is found, all subsequent empty squares are valid landing spots for a jump
-          if (curr === null) {
-            moves.push({ type: 'jump', dest: { r: cr, c: cc }, captured: foundEnemy });
+          // ئەگەر نەیارێکی بینیبێت، دەبێت باز بداتە سەر خانەی خاڵی
+          if (!currentSquare) {
+            moves.push({ type: 'jump', dest: { r: nr, c: nc }, captured: capturedPos! });
           } else {
-            break; // Blocked by a second piece (friendly or enemy)
+            break; // ناتوانێت بەسەر دوو بەرددا باز بدات لە یەک کاتدا
           }
         }
-        dist++;
+        step++; // ئەمە زۆر گرنگە! ئەگەر ئەمە نەبێت یارییەکە سەد لە سەد جام دەبێت.
       }
     }
   }
-
+  
   return moves;
-}
-
-export function getAllValidMoves(board: BoardType, player: Player): { r: number, c: number, move: Move }[] {
-  const allMoves: { r: number, c: number, move: Move }[] = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const p = board[r][c];
-      if (p && p.player === player) {
-        const moves = getMovesForPiece(board, r, c);
-        moves.forEach(move => {
-          allMoves.push({ r, c, move });
-        });
-      }
-    }
-  }
-  return allMoves;
 }
 
 export function hasAnyJumps(board: BoardType, player: Player): boolean {
@@ -121,17 +103,17 @@ export function hasAnyJumps(board: BoardType, player: Player): boolean {
 }
 
 export function checkWinner(board: BoardType, nextTurn: Player): Player | null {
-  let cyanCount = 0;
-  let whiteCount = 0;
+  let cyanHasPieces = false;
+  let whiteHasPieces = false;
   let nextHasMoves = false;
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const p = board[r][c];
       if (p) {
-        if (p.player === 'CYAN') cyanCount++;
-        if (p.player === 'WHITE') whiteCount++;
-        if (p.player === nextTurn && !nextHasMoves) {
+        if (p.player === 'CYAN') cyanHasPieces = true;
+        if (p.player === 'WHITE') whiteHasPieces = true;
+        if (p.player === nextTurn) {
           if (getMovesForPiece(board, r, c).length > 0) {
             nextHasMoves = true;
           }
@@ -140,8 +122,9 @@ export function checkWinner(board: BoardType, nextTurn: Player): Player | null {
     }
   }
 
-  if (cyanCount === 0) return 'WHITE';
-  if (whiteCount === 0) return 'CYAN';
+  if (!cyanHasPieces) return 'WHITE';
+  if (!whiteHasPieces) return 'CYAN';
   if (!nextHasMoves) return nextTurn === 'CYAN' ? 'WHITE' : 'CYAN';
+
   return null;
 }
