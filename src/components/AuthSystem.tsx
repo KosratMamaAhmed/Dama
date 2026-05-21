@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { User, ShieldAlert, Key, Smartphone, Mail, Lock, Gift, LogOut, Eye, EyeOff } from 'lucide-react';
+import { User, ShieldAlert, Key, Smartphone, Mail, Lock, Gift, LogOut, Eye, EyeOff, Sparkles, LogIn } from 'lucide-react';
 import { Language } from '../translations';
 import { BACKEND_URL } from '../config';
+import { motion, AnimatePresence } from 'motion/react';
 
 export interface UserProfile {
   id: string;
@@ -122,7 +123,7 @@ export default function AuthSystem({
 
       const loginData = await loginResponse.json() as any;
 
-      setSuccess(lang === 'KU' ? 'هەژمارەکە بە سەرکەوتوویی دروستکرا! ٥٠ تۆکن پێشکەش کرا 🎁' : lang === 'AR' ? 'تم إنشاء الحساب بنجاح! حصلت على 50 توكن 🎁' : 'Account created successfully! You received 50 tokens 🎁');
+      setSuccess(lang === 'KU' ? 'هەژمارەکە بە سەرکەوتوویی دروستکرا! ٥٠ تۆکن پێشکەش کرا 🎁' : 'Account created successfully! You received 50 tokens 🎁');
       
       const loggedUser: UserProfile = {
         id: String(loginData.user.id),
@@ -179,14 +180,12 @@ export default function AuthSystem({
         setError(
           lang === 'KU' 
             ? 'پەیوەندی بە سێرڤەرەوە نەکرا! دڵنیابە لە کارکردنی Workers key و هێڵەکەت.' 
-            : lang === 'AR'
-            ? 'فصل الاتصال بالسيرفر! يرجى التأكد من تشغيل الـ Workers.'
             : 'Could not connect to the backend server! Please verify your Workers and network.'
         );
       } else {
         let localizedMsg = err.message;
         if (err.message?.includes('UNIQUE constraint failed') || err.message?.includes('already exists')) {
-          localizedMsg = lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : lang === 'AR' ? 'هذا الاسم أو الهاتف مسجل مسبقاً!' : 'Username or email/phone already exists!';
+          localizedMsg = lang === 'KU' ? 'ئەم ناوە یان ئیمێڵ/مۆبایلە پێشتر تۆمارکراوە!' : 'Username or email/phone already exists!';
         }
         setError(localizedMsg);
       }
@@ -202,7 +201,7 @@ export default function AuthSystem({
     setSuccess('');
 
     if (!emailOrPhone.trim() || !password.trim()) {
-      setError(lang === 'KU' ? 'تکایە خانەکان پڕبکەرەوە!' : lang === 'AR' ? 'الرجاء ملء الحقول المطلوبة!' : 'Please fill required fields!');
+      setError(lang === 'KU' ? 'تکایە خانەکان پڕبکەرەوە!' : 'Please fill required fields!');
       return;
     }
 
@@ -231,7 +230,7 @@ export default function AuthSystem({
 
       const data = await response.json() as any;
 
-      setSuccess(lang === 'KU' ? 'چوونەژوورەوە سەرکەوتوو بوو!' : lang === 'AR' ? 'تم تسجيل الدخول بنجاح!' : 'Login successful!');
+      setSuccess(lang === 'KU' ? 'چوونەژوورەوە سەرکەوتوو بوو!' : 'Login successful!');
       
       const loggedUser: UserProfile = {
         id: String(data.user.id),
@@ -288,8 +287,6 @@ export default function AuthSystem({
         setError(
           lang === 'KU' 
             ? 'پەیوەندی بە سێرڤەرەوە نەکرا! دڵنیابە لە کارکردنی Workers key و هێڵەکەت.' 
-            : lang === 'AR'
-            ? 'فصل الاتصال بالسيرفر! يرجى التأكد من تشغيل الـ Workers.'
             : 'Could not connect to the backend server! Please verify your Workers and network.'
         );
       } else {
@@ -301,26 +298,38 @@ export default function AuthSystem({
   };
 
   return (
-    <div className="w-full max-w-md bg-slate-900/90 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden font-sans text-right">
-      {/* Decorative gradient top bar */}
-      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-cyan-500 via-teal-400 to-amber-500" />
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="w-full max-w-[420px] bg-slate-950/80 border border-white/10 rounded-[2rem] p-8 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden font-sans text-right"
+    >
+      {/* Decorative gradient glowing orb */}
+      <div className="absolute -top-32 -left-32 w-64 h-64 bg-cyan-500/20 rounded-full blur-[80px] pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] pointer-events-none" />
+      
+      {/* Decorative top bar */}
+      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
       
       {currentUser ? (
-        <div className="space-y-6 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
-            <User className="w-8 h-8" />
+        <div className="space-y-8 text-center relative z-10 w-full">
+          <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 border border-white/10 p-2 shadow-[0_0_30px_rgba(6,182,212,0.15)] flex items-center justify-center">
+             <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center border border-white/5">
+                <User className="w-10 h-10 text-cyan-400 opacity-80" />
+             </div>
           </div>
           <div>
-            <h3 className="text-xl font-black text-white">{currentUser.username}</h3>
-            <p className="text-xs text-white/50 font-mono mt-0.5">ID: {currentUser.id}</p>
+            <h3 className="text-2xl font-black text-white tracking-wide">{currentUser.username}</h3>
+            <p className="text-xs text-white/40 font-mono mt-1 font-medium tracking-widest uppercase">ID: {currentUser.id}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-500/15 to-yellow-500/5 border border-amber-500/30 rounded-2xl p-4 flex justify-between items-center space-x-4 space-x-reverse">
-            <div className="flex items-center space-x-2 space-x-reverse text-amber-300">
-              <Gift className="w-5 h-5 animate-pulse" />
-              <span className="font-black text-sm">{lang === 'KU' ? 'تۆکنەکانی تۆ:' : lang === 'AR' ? 'التوكنات الخاصة بك:' : 'Your Tokens:'}</span>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex justify-between items-center space-x-4 space-x-reverse relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="flex items-center space-x-3 space-x-reverse text-amber-300 relative z-10">
+              <Gift className="w-6 h-6 animate-pulse drop-shadow-[0_0_10px_rgba(251,191,36,0.5)] text-amber-400" />
+              <span className="font-bold text-sm tracking-wide text-white/90">{lang === 'KU' ? 'تۆکنەکانی تۆ:' : 'Your Tokens:'}</span>
             </div>
-            <span className="text-2xl font-black text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+            <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-amber-200 to-amber-500 font-mono drop-shadow-[0_2px_10px_rgba(245,158,11,0.2)] relative z-10">
               {currentUser.tokens} 🪙
             </span>
           </div>
@@ -331,66 +340,92 @@ export default function AuthSystem({
               setSuccess('');
               setError('');
             }}
-            className="w-full py-3 px-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 rounded-2xl font-bold transition-all flex items-center justify-center space-x-2 space-x-reverse cursor-pointer active:scale-95"
+            className="w-full py-3.5 px-4 bg-rose-500/10 hover:bg-rose-500/20 border-2 border-rose-500/20 hover:border-rose-500/40 text-rose-300 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse cursor-pointer group"
           >
-            <LogOut className="w-4 h-4" />
-            <span>{lang === 'KU' ? 'دەرچوون لە هەژمار' : lang === 'AR' ? 'تسجيل الخروج' : 'Logout'}</span>
+            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span>{lang === 'KU' ? 'دەرچوون لە هەژمار' : 'Logout'}</span>
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="text-center space-y-1">
-            <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-cyan-300">
+        <div className="space-y-7 relative z-10">
+          <div className="text-center space-y-2">
+            <motion.div 
+               initial={{ y: -10, opacity: 0 }}
+               animate={{ y: 0, opacity: 1 }}
+               className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-white/10 mb-2 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+            >
+              {authMode === 'LOGIN' ? <LogIn className="w-6 h-6 text-cyan-300" /> : <Sparkles className="w-6 h-6 text-cyan-300" />}
+            </motion.div>
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-cyan-300">
               {authMode === 'LOGIN' 
-                ? (lang === 'KU' ? 'چوونەژورەوەی ئۆնلاین' : lang === 'AR' ? 'تسجيل الدخول' : 'Online Login')
-                : (lang === 'KU' ? 'درۆستکردنی هەژمار' : lang === 'AR' ? 'إنشاء حساب جدید' : 'Sign Up')}
+                ? (lang === 'KU' ? 'ژووری ئۆنلاین' : 'Online Lobby')
+                : (lang === 'KU' ? 'هەژماری نوێ' : 'New Account')}
             </h2>
-            <p className="text-xs text-white/50">
+            <p className="text-sm text-cyan-100/60 font-medium">
               {authMode === 'LOGIN'
-                ? (lang === 'KU' ? 'بۆ دەستپێکردنی کێبڕکێ و گرتنی پۆینت' : lang === 'AR' ? 'سجل للمنافسة وجمع التوكنات' : 'Login to compete and save tokens')
-                : (lang === 'KU' ? 'بە خۆڕایی ناوت بنووسە و ٥٠ تۆکن وەربگرە!' : lang === 'AR' ? 'سجل مجاناً واحصل على 50 توكن هدية!' : 'Sign up free & get 50 tokens reward!')}
+                ? (lang === 'KU' ? 'چوونەژوورەوە بۆ کێبڕکێ و گرتنی پۆینت' : 'Login to compete and save tokens')
+                : (lang === 'KU' ? 'بە خۆڕایی ناوت بنووسە و ٥٠ تۆکن وەربگرە!' : 'Sign up free & get 50 tokens reward!')}
             </p>
           </div>
 
-          {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-xl text-xs text-rose-300 flex items-center space-x-2 space-x-reverse justify-end font-sans">
-              <span>{error}</span>
-              <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400" />
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl text-xs text-emerald-300 flex items-center space-x-2 space-x-reverse justify-end font-sans">
-              <span>{success}</span>
-              <Gift className="w-4 h-4 shrink-0 text-emerald-400" />
-            </div>
-          )}
-
-          <form onSubmit={authMode === 'LOGIN' ? handleLogin : handleRegister} className="space-y-4">
-            {authMode === 'REGISTER' && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black text-white/60 block">{lang === 'KU' ? 'ناوی بەکارهێنەر (یوزەر)' : lang === 'AR' ? 'اسم المستخدم' : 'Username'}</label>
-                <div className="relative">
-                  <input
-                    id="username"
-                    name="username"
-                    autoComplete="username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. kosret99"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-3.5 text-sm text-white text-right focus:outline-none focus:border-cyan-500 transition-all font-mono"
-                  />
-                  <User className="absolute left-3.5 top-3 w-4 h-4 text-white/30" />
-                </div>
-              </div>
+          <AnimatePresence mode="popLayout">
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl text-[13px] text-rose-200 flex items-center space-x-3 space-x-reverse justify-end font-sans shadow-[0_0_15px_rgba(244,63,94,0.1)]"
+              >
+                <span className="font-medium text-right flex-1">{error}</span>
+                <ShieldAlert className="w-5 h-5 shrink-0 text-rose-400" />
+              </motion.div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-black text-white/60 block">
-                {lang === 'KU' ? 'ئیمێڵ یان ژمارەی مۆبایل' : lang === 'AR' ? 'البريد الإلكتروني أو رقم الهاتف' : 'Email or Mobile'}
+            {success && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl text-[13px] text-emerald-200 flex items-center space-x-3 space-x-reverse justify-end font-sans shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+              >
+                <span className="font-medium text-right flex-1">{success}</span>
+                <Gift className="w-5 h-5 shrink-0 text-emerald-400" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form onSubmit={authMode === 'LOGIN' ? handleLogin : handleRegister} className="space-y-5">
+            <AnimatePresence mode="popLayout">
+              {authMode === 'REGISTER' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  animate={{ opacity: 1, height: 'auto', overflow: 'visible' }}
+                  exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  className="space-y-2"
+                >
+                  <label className="text-xs font-bold text-white/70 block px-1">{lang === 'KU' ? 'ناوی بەکارهێنەر (یوزەر)' : 'Username'}</label>
+                  <div className="relative group">
+                    <input
+                      id="username"
+                      name="username"
+                      autoComplete="username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="e.g. kosret99"
+                      className="w-full bg-slate-900/50 border-2 border-white/5 rounded-2xl py-3.5 px-4 text-sm text-white text-right focus:outline-none focus:border-cyan-500/50 hover:border-white/10 transition-all font-mono placeholder:text-white/20"
+                    />
+                    <User className="absolute left-4 top-4 w-5 h-5 text-white/30 group-focus-within:text-cyan-400 transition-colors" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 block px-1">
+                {lang === 'KU' ? 'ئیمێڵ یان ژمارەی مۆبایل' : 'Email or Mobile'}
               </label>
-              <div className="relative">
+              <div className="relative group">
                 <input
                   id="emailOrPhone"
                   name="emailOrPhone"
@@ -398,16 +433,16 @@ export default function AuthSystem({
                   type="text"
                   value={emailOrPhone}
                   onChange={(e) => setEmailOrPhone(e.target.value)}
-                  placeholder="e.g. user@dama.com or 0750xxxx"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-3.5 text-sm text-white text-right focus:outline-none focus:border-cyan-500 transition-all font-mono"
+                  placeholder="name@domain.com or 0750..."
+                  className="w-full bg-slate-900/50 border-2 border-white/5 rounded-2xl py-3.5 px-4 text-sm text-white text-right focus:outline-none focus:border-cyan-500/50 hover:border-white/10 transition-all font-mono placeholder:text-white/20"
                 />
-                <Smartphone className="absolute left-3.5 top-3 w-4 h-4 text-white/30" />
+                <Smartphone className="absolute left-4 top-4 w-5 h-5 text-white/30 group-focus-within:text-cyan-400 transition-colors" />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-black text-white/60 block">{lang === 'KU' ? 'پاسوۆرد' : lang === 'AR' ? 'كلمة المرور' : 'Password'}</label>
-              <div className="relative">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 block px-1">{lang === 'KU' ? 'پاسوۆرد' : 'Password'}</label>
+              <div className="relative group">
                 <input
                   id="password"
                   name="password"
@@ -415,61 +450,92 @@ export default function AuthSystem({
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="******"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-3.5 text-sm text-white text-right focus:outline-none focus:border-cyan-500 transition-all font-mono pl-10"
+                  placeholder="••••••••"
+                  className="w-full bg-slate-900/50 border-2 border-white/5 rounded-2xl py-3.5 px-4 pl-12 text-sm text-white text-right focus:outline-none focus:border-cyan-500/50 hover:border-white/10 transition-all font-mono placeholder:text-white/20"
                 />
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-3.5 top-2.5 p-1 rounded-md text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors cursor-pointer"
+                  className="absolute left-3 top-3 p-1.5 rounded-xl text-white/30 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
 
             {/* Remember Me Checkbox */}
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center justify-between pt-2">
               <div></div>
-              <label className="flex items-center space-x-2 space-x-reverse cursor-pointer group text-xs text-white/60 select-none">
-                <span className="group-hover:text-white transition-colors">
-                  {lang === 'KU' ? 'بیرم کەرەوە (هه‌ڵگرتنی زانیارییه‌كان)' : 'Remember Me'}
+              <label className="flex items-center space-x-3 space-x-reverse cursor-pointer group text-sm text-white/60 select-none">
+                <span className="group-hover:text-white transition-colors font-medium">
+                  {lang === 'KU' ? 'هه‌ڵگرتنی زانیارییه‌كانم' : 'Remember Me'}
                 </span>
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-white/10 bg-black/40 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-cyan-500"
-                />
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-5 h-5 rounded-lg border-2 border-white/20 bg-slate-900/50 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-cyan-500 checked:border-cyan-500 transition-all"
+                  />
+                  {rememberMe && <Sparkles className="w-3 h-3 text-black absolute pointer-events-none" />}
+                </div>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-black rounded-xl transition-all shadow-md active:scale-95 cursor-pointer text-sm disabled:opacity-50"
+              className="w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black rounded-2xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] active:scale-[0.98] cursor-pointer text-base disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center space-x-2 space-x-reverse relative overflow-hidden group"
             >
-              {loading 
-                ? (lang === 'KU' ? 'تکایە چاوەڕوان بە... ⏳' : 'Please wait... ⏳') 
-                : authMode === 'LOGIN'
-                  ? (lang === 'KU' ? 'چوونەژوورەوە 🔑' : lang === 'AR' ? 'تسجيل الدخول' : 'Sign In')
-                  : (lang === 'KU' ? 'تۆمارکردن و وەرگرتنی دیاری 🎁' : lang === 'AR' ? 'إنشاء حساب وهدية التوكنات' : 'Get Starter Gift')
-              }
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[200%] group-hover:animate-[shimmer_1.5s_infinite]" />
+              {loading ? (
+                <span className="flex items-center space-x-2 space-x-reverse justify-center w-full">
+                   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                   <span>{lang === 'KU' ? 'چاوەڕوان بە...' : 'Please wait...'}</span>
+                </span>
+              ) : authMode === 'LOGIN' ? (
+                <span className="flex items-center space-x-2 space-x-reverse text-shadow-sm">
+                   <LogIn className="w-5 h-5" />
+                   <span>{lang === 'KU' ? 'چوونەژوورەوە' : 'Sign In'}</span>
+                </span>
+              ) : (
+                <span className="flex items-center space-x-2 space-x-reverse text-shadow-sm">
+                   <Gift className="w-5 h-5 text-amber-200" />
+                   <span>{lang === 'KU' ? 'تۆمارکردن و وەرگرتنی دیاری' : 'Get Starter Gift'}</span>
+                </span>
+              )}
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-white/5 font-sans">
+          <div className="text-center pt-5 border-t border-white/10 font-sans">
             <button
-              onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
-              className="text-xs text-cyan-400 hover:underline font-bold"
+              type="button"
+              onClick={() => {
+                setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN');
+                setError('');
+                setSuccess('');
+              }}
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors font-bold group inline-flex items-center space-x-2 space-x-reverse cursor-pointer"
             >
-              {authMode === 'LOGIN'
-                ? (lang === 'KU' ? 'هێشتا هەژمارت نییە؟ دروستی بکە' : lang === 'AR' ? 'ليس لديك حساب؟ سجل الآن' : "Don't have an account? Sign up")
-                : (lang === 'KU' ? 'ھەژمارت ھەیە؟ بچۆ ژورەوە' : lang === 'AR' ? 'لديك حساب بالفعل؟ سجل دخولك' : 'Have an account? Login')}
+              <span>
+                {authMode === 'LOGIN'
+                ? (lang === 'KU' ? 'هێشتا هەژمارت نییە؟ ' : "Don't have an account? ")
+                : (lang === 'KU' ? 'ھەژمارت ھەیە؟ ' : 'Have an account? ')}
+              </span>
+              <span className="underline group-hover:no-underline underline-offset-4 opacity-80 group-hover:opacity-100">
+                {authMode === 'LOGIN'
+                  ? (lang === 'KU' ? 'هەژمار دروستبکە' : "Sign up")
+                  : (lang === 'KU' ? 'بچۆ ژورەوە' : 'Login')}
+              </span>
             </button>
           </div>
         </div>
       )}
-    </div>
+      <style>{`
+        @keyframes shimmer {
+          100% { transform: translateX(200%); }
+        }
+      `}</style>
+    </motion.div>
   );
 }

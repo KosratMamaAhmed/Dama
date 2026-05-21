@@ -809,7 +809,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.error("Error polling invites:", err);
+        // Silently ignore network/CORS errors from backend
       }
     };
 
