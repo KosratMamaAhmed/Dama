@@ -493,7 +493,214 @@ export default function App() {
     setCoachHintMessage('');
   }, [gameState.board, gameState.turn]);
 
-  // Listen to multiplayer messages over BroadcastChannel
+  // Ref to track processed multiplayer message IDs to prevent duplicate actions
+  const processedMsgIds = useRef<Set<string>>(new Set());
+
+  // Unified helper to send multiplayer events both locally (BroadcastChannel) and globally (Cloudflare Workers KV)
+  const sendMultiplayerMessage = (msg: any) => {
+    // 1. Send via local BroadcastChannel (same machine tabs sync)
+    try {
+      const bc = new BroadcastChannel('dama_multiplayer_channel');
+      bc.postMessage(msg);
+      bc.close();
+    } catch (e) {}
+
+    // 2. Send via Remote Cloudflare KV server (cross-device/cross-country devices sync)
+    if (isOnlineMatch && (roomCode || msg.roomCode)) {
+      const targetRoom = msg.roomCode || roomCode;
+      fetch(`${BACKEND_URL}/api/room/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomCode: targetRoom,
+          sender: currentUser ? currentUser.username : 'GUEST',
+          type: msg.type,
+          payload: {
+            ...msg,
+            senderUsername: currentUser ? currentUser.username : 'GUEST'
+          }
+        })
+      }).catch(err => console.error("Error updating multiplayer state remotely:", err));
+    }
+  };
+
+  // Intercept physical android / mobile back gestures using POPSTATE
+  useEffect(() => {
+    // Push a dummy history state so we have a state to "pop" back from!
+    window.history.pushState({ screenState: screen }, '', '');
+    
+    const handlePopState = (e: PopStateEvent) => {
+      // Prevent physical browser history go-back
+      e.preventDefault();
+      
+      // Navigate one step back in our custom memory stack
+      handleNavigateBack();
+      
+      // Instantly restore the dummy state to intercept the NEXT swipe gesture
+      window.history.pushState({ screenState: screen }, '', '');
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [screen, screenHistory]);
+
+  // Handle incoming message commands uniformly
+  const handleIncomingMultiplayerMessage = (data: any) => {
+    if (!data) return;
+
+    // 1. Peer requests to join hosted room
+    if (data.type === 'PEER_JOIN_REQUEST') {
+      if (roomCode && data.roomCode === roomCode && onlineRole === 'HOST' && !lobbySuccess) {
+        setLobbySuccess(true);
+        setIsLobbySearching(false);
+        if (soundEnabled) {
+          try { playSound('win'); } catch(e){}
+        }
+        showNotification(lang === 'KU' ? `دیاری: ${data.guestUser} بەستراوەتەوە بە ژوورەکەت! ⚔️` : `Player ${data.guestUser} joined your room!`, 'success');
+        
+        // Auto-reply with ACCEPT over multiplayer channel
+        sendMultiplayerMessage({
+          type: 'PEER_JOIN_ACCEPT',
+          roomCode: roomCode,
+          hostUser: currentUser?.username || 'Host Player'
+        });
+
+        const rival = data.guestUser;
+        setTimeout(() => {
+          const myName = currentUser ? currentUser.username : 'یاریزان ١';
+          setPlayer1Name(`${myName} (You)`);
+          setPlayer2Name(`${rival} 🌐`);
+          setMode('FRIEND');
+          setIsOnlineMatch(true);
+          setScreenRaw('PLAYING');
+          handleFullReset();
+          deductEntryTokens();
+        }, 1200);
+      }
+    }
+
+    // 2. Guest receives peer acceptance
+    if (data.type === 'PEER_JOIN_ACCEPT') {
+      if (roomCode && data.roomCode === roomCode && onlineRole === 'GUEST' && !lobbySuccess) {
+        setLobbySuccess(true);
+        setIsLobbySearching(false);
+        if (soundEnabled) {
+          try { playSound('win'); } catch(e){}
+        }
+        showNotification(lang === 'KU' ? `بە سەرکەوتوویی بەسترایتەوە لەگەڵ ${data.hostUser}! 🤝` : `Connected with ${data.hostUser}!`, 'success');
+
+        const rival = data.hostUser;
+        setTimeout(() => {
+          const myName = currentUser ? currentUser.username : 'یاریزان ٢';
+          setPlayer1Name(`${rival} 🌐`);
+          setPlayer2Name(`${myName} (You)`);
+          setMode('FRIEND');
+          setIsOnlineMatch(true);
+          setScreenRaw('PLAYING');
+          handleFullReset();
+          deductEntryTokens();
+        }, 1200);
+      }
+    }
+
+    // 3. Username Direct Invitation
+    if (data.type === 'USERNAME_INVITE_SEND') {
+      if (currentUser && data.targetUsername.toLowerCase() === currentUser.username.toLowerCase()) {
+        setIncomingInvite({
+          sender: data.senderUsername,
+          roomCode: data.roomCode
+        });
+        if (soundEnabled) {
+          try { playSound('select'); } catch(e){}
+        }
+      }
+    }
+
+    // 4. Accepting direct invitation callback
+    if (data.type === 'USERNAME_INVITE_ACCEPT') {
+      if (currentUser && data.senderUsername.toLowerCase() === currentUser.username.toLowerCase() && roomCode === data.roomCode && !lobbySuccess) {
+        setLobbySuccess(true);
+        setIsLobbySearching(false);
+        showNotification(lang === 'KU' ? `بەکارهێنەر ${data.acceptorUsername} بانگهێشتەکەی قبوڵ کردیت! ⚔️` : `Player ${data.acceptorUsername} accepted the challenge!`, 'success');
+        
+        setTimeout(() => {
+          const myName = currentUser.username;
+          setPlayer1Name(`${myName} (You)`);
+          setPlayer2Name(`${data.acceptorUsername} 🌐`);
+          setMode('FRIEND');
+          setIsOnlineMatch(true);
+          setOnlineRole('HOST');
+          setScreenRaw('PLAYING');
+          handleFullReset();
+          deductEntryTokens();
+        }, 1200);
+      }
+    }
+
+    // 5. Board sync
+    if (data.type === 'GAME_STATE_UPDATE') {
+      if (isOnlineMatch && data.roomCode === roomCode) {
+        dispatch({ type: 'HYDRATE_STATE', payload: data.gameState });
+        if (soundEnabled) {
+          try { playSound('move'); } catch(e){}
+        }
+      }
+    }
+
+    // 6. Remote Click sync
+    if (data.type === 'REMOTE_CLICK') {
+      if (isOnlineMatch && data.roomCode === roomCode) {
+        dispatch({ type: 'SELECT_OR_MOVE', payload: data.payload });
+        if (soundEnabled) {
+          try { playSound('move'); } catch(e){}
+        }
+      }
+    }
+
+    // 6. Floating emoji/chat messages sync
+    if (data.type === 'GAME_CHAT_SYNC') {
+      if (isOnlineMatch && data.roomCode === roomCode) {
+        if (data.msgType === 'emoji') {
+          setFloatingEmojis(prev => [...prev, {
+            id: Math.random().toString(),
+            emoji: data.content,
+            x: Math.floor(Math.random() * 240) - 120,
+            y: 0
+          }]);
+          if (soundEnabled) {
+            try { playSound('move'); } catch(e){}
+          }
+        } else if (data.msgType === 'text') {
+          setChatMessage({
+            sender: onlineRole === 'HOST' ? 'P2' : 'P1',
+            text: data.content,
+            id: Math.random().toString()
+          });
+          if (soundEnabled) {
+            try { playSound('move'); } catch(e){}
+          }
+        }
+      }
+    }
+
+    // 7. Rematch triggers
+    if (data.type === 'GAME_REMATCH_OFFER') {
+      if (isOnlineMatch && data.roomCode === roomCode) {
+        showNotification(lang === 'KU' ? `بەرامبەرەکەت داوای ململانێ سێتێکی نوێ دەکات! 🔄` : `Opponent wants a rematch!`, 'info');
+      }
+    }
+
+    if (data.type === 'GAME_REMATCH_ACCEPT') {
+      if (isOnlineMatch && data.roomCode === roomCode) {
+        showNotification(lang === 'KU' ? `یاریەکە نوێکرایەوە! سەرکەوتووبیت! 🏁` : `Match restarted!`, 'success');
+        dispatch({ type: 'RESET_GAME' });
+      }
+    }
+  };
+
+  // Listen to multiplayer messages over BroadcastChannel (Local multi-tab backup)
   useEffect(() => {
     try {
       const bc = new BroadcastChannel('dama_multiplayer_channel');
@@ -501,157 +708,7 @@ export default function App() {
       bc.onmessage = (event) => {
         const data = event.data;
         if (!data) return;
-
-        // 1. Peer requests to join hosted room
-        if (data.type === 'PEER_JOIN_REQUEST') {
-          if (roomCode && data.roomCode === roomCode && onlineRole === 'HOST') {
-            setLobbySuccess(true);
-            setIsLobbySearching(false);
-            if (soundEnabled) {
-              try { playSound('win'); } catch(e){}
-            }
-            showNotification(lang === 'KU' ? `دیاری: ${data.guestUser} بەستراوەتەوە بە ژوورەکەت! ⚔️` : `Player ${data.guestUser} joined your room!`, 'success');
-            
-            // Send feedback back to the guest
-            bc.postMessage({
-              type: 'PEER_JOIN_ACCEPT',
-              roomCode: roomCode,
-              hostUser: currentUser?.username || 'Host Player'
-            });
-
-            // Start game in 1.2s
-            const rival = data.guestUser;
-            setTimeout(() => {
-              const myName = currentUser ? currentUser.username : 'یاریزان ١';
-              setPlayer1Name(`${myName} (You)`);
-              setPlayer2Name(`${rival} 🌐`);
-              setMode('FRIEND');
-              setIsOnlineMatch(true);
-              setScreen('PLAYING');
-              handleFullReset();
-              deductEntryTokens();
-            }, 1200);
-          }
-        }
-
-        // 2. Guest receives peer acceptance
-        if (data.type === 'PEER_JOIN_ACCEPT') {
-          if (roomCode && data.roomCode === roomCode && onlineRole === 'GUEST') {
-            setLobbySuccess(true);
-            setIsLobbySearching(false);
-            if (soundEnabled) {
-              try { playSound('win'); } catch(e){}
-            }
-            showNotification(lang === 'KU' ? `بە سەرکەوتوویی بەسترایتەوە لەگەڵ ${data.hostUser}! 🤝` : `Connected with ${data.hostUser}!`, 'success');
-
-            // Start game in 1.2s
-            const rival = data.hostUser;
-            setTimeout(() => {
-              const myName = currentUser ? currentUser.username : 'یاریزان ٢';
-              setPlayer1Name(`${rival} 🌐`);
-              setPlayer2Name(`${myName} (You)`);
-              setMode('FRIEND');
-              setIsOnlineMatch(true);
-              setScreen('PLAYING');
-              handleFullReset();
-              deductEntryTokens();
-            }, 1200);
-          }
-        }
-
-        // 3. Username Direct Invitation
-        if (data.type === 'USERNAME_INVITE_SEND') {
-          if (currentUser && data.targetUsername.toLowerCase() === currentUser.username.toLowerCase()) {
-            setIncomingInvite({
-              sender: data.senderUsername,
-              roomCode: data.roomCode
-            });
-            if (soundEnabled) {
-              try { playSound('select'); } catch(e){}
-            }
-          }
-        }
-
-        // 4. Accepting direct invitation callback
-        if (data.type === 'USERNAME_INVITE_ACCEPT') {
-          if (currentUser && data.senderUsername.toLowerCase() === currentUser.username.toLowerCase() && roomCode === data.roomCode) {
-            setLobbySuccess(true);
-            setIsLobbySearching(false);
-            showNotification(lang === 'KU' ? `بەکارهێنەر ${data.acceptorUsername} بانگهێشتەکەی قبوڵ کردیت! ⚔️` : `Player ${data.acceptorUsername} accepted the challenge!`, 'success');
-            
-            setTimeout(() => {
-              const myName = currentUser.username;
-              setPlayer1Name(`${myName} (You)`);
-              setPlayer2Name(`${data.acceptorUsername} 🌐`);
-              setMode('FRIEND');
-              setIsOnlineMatch(true);
-              setOnlineRole('HOST');
-              setScreen('PLAYING');
-              handleFullReset();
-              deductEntryTokens();
-            }, 1200);
-          }
-        }
-
-        // 5. Board sync
-        if (data.type === 'GAME_STATE_UPDATE') {
-          if (isOnlineMatch && data.roomCode === roomCode) {
-            dispatch({ type: 'HYDRATE_STATE', payload: data.gameState });
-            if (soundEnabled) {
-              try { playSound('move'); } catch(e){}
-            }
-          }
-        }
-
-        // 6. Remote Click sync
-        if (data.type === 'REMOTE_CLICK') {
-          if (isOnlineMatch && data.roomCode === roomCode) {
-            dispatch({ type: 'SELECT_OR_MOVE', payload: data.payload });
-            if (soundEnabled) {
-              try { playSound('move'); } catch(e){}
-            }
-          }
-        }
-
-        // 6. Floating emoji/chat messages sync
-        if (data.type === 'GAME_CHAT_SYNC') {
-          if (isOnlineMatch && data.roomCode === roomCode) {
-            if (data.msgType === 'emoji') {
-              setFloatingEmojis(prev => [...prev, {
-                id: Math.random().toString(),
-                emoji: data.content,
-                x: Math.floor(Math.random() * 240) - 120,
-                y: 0
-              }]);
-              if (soundEnabled) {
-                try { playSound('move'); } catch(e){}
-              }
-            } else if (data.msgType === 'text') {
-              setChatMessage({
-                sender: onlineRole === 'HOST' ? 'P2' : 'P1',
-                text: data.content,
-                id: Math.random().toString()
-              });
-              if (soundEnabled) {
-                try { playSound('move'); } catch(e){}
-              }
-            }
-          }
-        }
-
-        // 7. Rematch triggers
-        if (data.type === 'GAME_REMATCH_OFFER') {
-          if (isOnlineMatch && data.roomCode === roomCode) {
-            showNotification(lang === 'KU' ? `بەرامبەرەکەت داوای ململانێ سێتێکی نوێ دەکات! 🔄` : `Opponent wants a rematch!`, 'info');
-          }
-        }
-
-        if (data.type === 'GAME_REMATCH_ACCEPT') {
-          if (isOnlineMatch && data.roomCode === roomCode) {
-            showNotification(lang === 'KU' ? `یاریەکە نوێکرایەوە! سەرکەوتووبیت! 🏁` : `Match restarted!`, 'success');
-            dispatch({ type: 'RESET_GAME' });
-          }
-        }
+        handleIncomingMultiplayerMessage(data);
       };
 
       return () => {
@@ -659,6 +716,110 @@ export default function App() {
       };
     } catch(e) {}
   }, [roomCode, onlineRole, isOnlineMatch, currentUser, soundEnabled, lang]);
+
+  // 📡 Real-time Multiplayer Backend Polling (Cloudflare KV Synchronizer)
+  useEffect(() => {
+    if (!roomCode || !isOnlineMatch) return;
+
+    let active = true;
+    const pollRoom = async () => {
+      if (!active) return;
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/room/poll?roomCode=${roomCode}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data || !data.success || !active) return;
+
+        // 1. If we are HOST and status changes to PLAYING and lobby isn't marked as success yet, trigger join
+        if (onlineRole === 'HOST' && data.status === 'PLAYING' && !lobbySuccess && data.guestUsername) {
+          setLobbySuccess(true);
+          setIsLobbySearching(false);
+          if (soundEnabled) {
+            try { playSound('win'); } catch(e){}
+          }
+          showNotification(lang === 'KU' ? `دیاری: ${data.guestUsername} بەستراوەتەوە بە ژوورەکەت! ⚔️` : `Player ${data.guestUsername} joined your room!`, 'success');
+          
+          const rival = data.guestUsername;
+          setTimeout(() => {
+            const myName = currentUser ? currentUser.username : 'یاریزان ١';
+            setPlayer1Name(`${myName} (You)`);
+            setPlayer2Name(`${rival} 🌐`);
+            setMode('FRIEND');
+            setIsOnlineMatch(true);
+            setScreenRaw('PLAYING');
+            handleFullReset();
+            deductEntryTokens();
+          }, 1200);
+        }
+
+        // 2. Process all incoming messages from KV
+        if (data.messages && Array.isArray(data.messages)) {
+          data.messages.forEach((msg: any) => {
+            if (!processedMsgIds.current.has(msg.id)) {
+              processedMsgIds.current.add(msg.id);
+              
+              // Skip messages that we sent to the server ourselves
+              if (msg.senderUsername === currentUser?.username) return;
+
+              // Extract the payload (which is the actual BroadcastChannel message format)
+              const originalMsg = msg.payload || msg;
+              
+              // Directly execute the message handler!
+              handleIncomingMultiplayerMessage(originalMsg);
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Online Polling Error:", e);
+      }
+    };
+
+    // Poll instantly
+    pollRoom();
+
+    // Poll every 800ms
+    const interval = setInterval(pollRoom, 800);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [roomCode, isOnlineMatch, onlineRole, lobbySuccess, currentUser, soundEnabled, lang]);
+
+  // 📨 direct challenge / invite polling on Home Screen
+  useEffect(() => {
+    if (screen !== 'HOME' || !currentUser) return;
+
+    let active = true;
+    const pollInvite = async () => {
+      if (!active) return;
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/invite/poll?username=${currentUser.username}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data || !active) return;
+
+        if (data.success && data.invite) {
+          // Show the direct incoming challenge popup!
+          setIncomingInvite({
+            sender: data.invite.senderUsername,
+            roomCode: data.invite.roomCode
+          });
+          if (soundEnabled) {
+            try { playSound('select'); } catch(e){}
+          }
+        }
+      } catch (err) {
+        console.error("Error polling invites:", err);
+      }
+    };
+
+    pollInvite();
+    const interval = setInterval(pollInvite, 3000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [screen, currentUser, soundEnabled]);
 
   // Sync game states over BroadcastChannel on movements is now handled via customDispatch (REMOTE_CLICK)
 
@@ -668,15 +829,11 @@ export default function App() {
 
     // If it's a click action and we are playing online, broadcast it to the opponent!
     if (action.type === 'SELECT_OR_MOVE' && isOnlineMatch && onlineRole && roomCode) {
-      try {
-        const bc = new BroadcastChannel('dama_multiplayer_channel');
-        bc.postMessage({
-          type: 'REMOTE_CLICK',
-          roomCode: roomCode,
-          payload: action.payload
-        });
-        bc.close();
-      } catch (e) {}
+      sendMultiplayerMessage({
+        type: 'REMOTE_CLICK',
+        roomCode: roomCode,
+        payload: action.payload
+      });
     }
   };
   useEffect(() => {
@@ -746,16 +903,12 @@ export default function App() {
 
     // Broadcast if online match is active
     if (isOnlineMatch && roomCode) {
-      try {
-        const bc = new BroadcastChannel('dama_multiplayer_channel');
-        bc.postMessage({
-          type: 'GAME_CHAT_SYNC',
-          roomCode,
-          msgType: 'emoji',
-          content: emoji
-        });
-        bc.close();
-      } catch (e) {}
+      sendMultiplayerMessage({
+        type: 'GAME_CHAT_SYNC',
+        roomCode,
+        msgType: 'emoji',
+        content: emoji
+      });
     }
 
     setTimeout(() => {
@@ -773,16 +926,12 @@ export default function App() {
 
     // Broadcast if online match is active
     if (isOnlineMatch && roomCode) {
-      try {
-        const bc = new BroadcastChannel('dama_multiplayer_channel');
-        bc.postMessage({
-          type: 'GAME_CHAT_SYNC',
-          roomCode,
-          msgType: 'text',
-          content: text
-        });
-        bc.close();
-      } catch (e) {}
+      sendMultiplayerMessage({
+        type: 'GAME_CHAT_SYNC',
+        roomCode,
+        msgType: 'text',
+        content: text
+      });
     }
 
     setTimeout(() => {
@@ -879,6 +1028,16 @@ export default function App() {
     setIsLobbySearching(true);
     setOnlineRole('HOST');
     setIsOnlineMatch(true);
+
+    // Register room code on backend immediately
+    fetch(`${BACKEND_URL}/api/room/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode: generated,
+        hostUsername: currentUser ? currentUser.username : (lang === 'KU' ? 'کۆسرەت' : 'Kosret')
+      })
+    }).catch(err => console.error("Error registering hosted room on Cloudflare KV:", err));
   };
 
   // Join Room with a code
@@ -894,32 +1053,49 @@ export default function App() {
     setOnlineRole('GUEST');
     setIsOnlineMatch(true);
 
-    // Wait a brief moment for React state to batch and update the broadcast listeners
-    setTimeout(() => {
-      try {
-        const bc = new BroadcastChannel('dama_multiplayer_channel');
-        // Broadcast peer join request
-        bc.postMessage({
-          type: 'PEER_JOIN_REQUEST',
-          roomCode: typedRoomCode,
-          guestUser: currentUser ? currentUser.username : (lang === 'KU' ? 'مێوانی کاتی' : 'Guest Player')
+    // Call join API on backend
+    fetch(`${BACKEND_URL}/api/room/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode: typedRoomCode,
+        guestUsername: currentUser ? currentUser.username : (lang === 'KU' ? 'مێوانی کاتی' : 'Guest Player')
+      })
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(data => {
+          throw new Error(data.error || 'Failed to join room');
         });
-        bc.close();
-      } catch (e) {}
-    }, 400);
-    
-    // Timeout fallback: If no matching host responds within 6 seconds, warn user
-    setTimeout(() => {
-      setIsLobbySearching((currentSearching) => {
-        if (currentSearching) {
-          setLobbyError(lang === 'KU' 
-            ? 'داوای بەستنەوە سەرکەوتوو نەبوو! دڵنیابە کە هاوڕێکەت ژووری دروستکردووە لە هەمان برۆوسەر/مۆبایل.' 
-            : 'Connection request timed out! Make sure your partner created a room first on the same browser context.');
-          return false;
-        }
-        return currentSearching;
-      });
-    }, 6000);
+      }
+      return res.json();
+    })
+    .then((data: any) => {
+      // Successfully joined the hosted room! Setup name bindings and expect matchmaking in next polls
+      setLobbySuccess(true);
+      setIsLobbySearching(false);
+      if (soundEnabled) {
+        try { playSound('win'); } catch(e){}
+      }
+      showNotification(lang === 'KU' ? `بە سەرکەوتوویی بەسترایتەوە لەگەڵ ${data.hostUsername}! 🤝` : `Connected with ${data.hostUsername}!`, 'success');
+
+      const rival = data.hostUsername;
+      setTimeout(() => {
+        const myName = currentUser ? currentUser.username : 'یاریزان ٢';
+        setPlayer1Name(`${rival} 🌐`);
+        setPlayer2Name(`${myName} (You)`);
+        setMode('FRIEND');
+        setIsOnlineMatch(true);
+        setScreen('PLAYING');
+        handleFullReset();
+        deductEntryTokens();
+      }, 1200);
+    })
+    .catch((err: any) => {
+      console.error(err);
+      setIsLobbySearching(false);
+      setLobbyError(err.message || (lang === 'KU' ? 'بەستنەوەکە سەرکەوتوو نەبوو! دڵنیابە کۆدەکە ڕاستە.' : 'Connection failed! Check the code.'));
+    });
   };
 
   // Explicitly simulate player joining (keeps backward compatibility)
@@ -937,33 +1113,44 @@ export default function App() {
     setOnlineRole('GUEST');
     setLobbySuccess(true);
     
-    try {
-      const bc = new BroadcastChannel('dama_multiplayer_channel');
-      bc.postMessage({
-        type: 'USERNAME_INVITE_ACCEPT',
+    // Clear invite from backend first
+    fetch(`${BACKEND_URL}/api/invite/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser?.username })
+    }).catch(e => console.error(e));
+
+    // Join room on backend
+    fetch(`${BACKEND_URL}/api/room/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         roomCode: incomingInvite.roomCode,
-        senderUsername: incomingInvite.sender,
-        acceptorUsername: currentUser?.username || 'Guest Player'
-      });
-      bc.close();
-    } catch(e) {}
+        guestUsername: currentUser?.username || 'Guest Player'
+      })
+    })
+    .then(res => res.json())
+    .then((data: any) => {
+      showNotification(lang === 'KU' ? `داواکاریەکە قبوڵ کرا! بەیەکەوە بەسترانەوە 🎉` : `Invite accepted! Connected 🎉`, 'success');
+      
+      const rivalName = incomingInvite.sender;
+      setIncomingInvite(null);
 
-    showNotification(lang === 'KU' ? `داواکاریەکە قبوڵ کرا! بەیەکەوە بەسترانەوە 🎉` : `Invite accepted! Connected 🎉`, 'success');
-    
-    // Game starts in 1.2s
-    const rivalName = incomingInvite.sender;
-    setIncomingInvite(null);
-
-    setTimeout(() => {
-      const myName = currentUser ? currentUser.username : 'یاریزان ٢';
-      setPlayer1Name(`${rivalName} 🔵`);
-      setPlayer2Name(`${myName} (You) 🔴`);
-      setMode('FRIEND');
-      setIsOnlineMatch(true);
-      setScreen('PLAYING');
-      handleFullReset();
-      deductEntryTokens();
-    }, 1200);
+      setTimeout(() => {
+        const myName = currentUser ? currentUser.username : 'یاریزان ٢';
+        setPlayer1Name(`${rivalName} 🔵`);
+        setPlayer2Name(`${myName} (You) 🔴`);
+        setMode('FRIEND');
+        setIsOnlineMatch(true);
+        setScreen('PLAYING');
+        handleFullReset();
+        deductEntryTokens();
+      }, 1200);
+    })
+    .catch(err => {
+      console.error(err);
+      showNotification(lang === 'KU' ? 'هەڵەیەک لە بەستنەوە ڕوویدا!' : 'Error joining room!', 'error');
+    });
   };
 
   const handleSendInviteToUser = (targetProfile: UserProfile) => {
@@ -977,16 +1164,28 @@ export default function App() {
     setIsLobbySearching(true);
     setLobbySuccess(false);
 
-    try {
-      const bc = new BroadcastChannel('dama_multiplayer_channel');
-      bc.postMessage({
-        type: 'USERNAME_INVITE_SEND',
-        targetUsername: targetProfile.username,
-        senderUsername: currentUser.username,
-        roomCode: generated
+    // Register room code on Cloudflare and send invite
+    fetch(`${BACKEND_URL}/api/room/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode: generated,
+        hostUsername: currentUser.username
+      })
+    })
+    .then(() => {
+      // Send invite to user via backend
+      fetch(`${BACKEND_URL}/api/invite/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUsername: targetProfile.username,
+          senderUsername: currentUser.username,
+          roomCode: generated
+        })
       });
-      bc.close();
-    } catch (e) {}
+    })
+    .catch(err => console.error("Error creating direct challenge room on backend:", err));
 
     showNotification(lang === 'KU' ? `ناردنی بانگهێشت بۆ @${targetProfile.username} سەرکەوتووبوو! ⚔️` : `Challenged @${targetProfile.username}! ⚔️`, 'info');
   };
@@ -2179,22 +2378,24 @@ export default function App() {
                     : 'Get the invite code from your partner and enter it below.'}
                 </p>
 
-                <div className="flex space-x-2 space-x-reverse max-w-full">
+                <div className="flex items-center space-x-2 space-x-reverse w-full max-w-md mx-auto">
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-5489]*"
                     maxLength={4}
                     value={typedRoomCode}
                     onChange={(e) => setTypedRoomCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="e.g. 5489"
-                    className="flex-1 min-w-0 bg-black/40 border border-white/15 rounded-xl text-center py-2 text-lg text-white font-mono tracking-widest focus:outline-none focus:border-cyan-400 placeholder-white/20"
+                    className="flex-1 min-w-0 w-full bg-black/40 border border-white/15 rounded-xl text-center py-2 text-base sm:text-lg text-white font-mono tracking-widest focus:outline-none focus:border-cyan-400 placeholder-white/20 focus:ring-1 focus:ring-cyan-400/30"
                   />
                   <button
                     disabled={typedRoomCode.length !== 4 || isLobbySearching}
                     onClick={handleJoinRoom}
-                    className={`shrink-0 px-4 sm:px-5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:pointer-events-none ${
+                    className={`shrink-0 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all duration-300 active:scale-95 cursor-pointer disabled:opacity-35 disabled:pointer-events-none ${
                       typedRoomCode.length !== 4 || isLobbySearching
                         ? 'bg-white/5 text-white/40 border border-white/5'
-                        : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.4)] font-black animate-pulse hover:animate-none'
+                        : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.45)] animate-pulse hover:animate-none scale-100'
                     }`}
                   >
                     {lang === 'KU' ? 'پێک بەستن' : 'Connect'}

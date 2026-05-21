@@ -283,7 +283,18 @@ export default function AuthSystem({
 
     } catch (err: any) {
       console.error(err);
-      setError(lang === 'KU' ? 'زانیارییەکان نادروستن یان پەیوەندی سێرڤەر نییە!' : lang === 'AR' ? 'بيانات الدخول غير صحيحة أو السيرفر غير متصل!' : 'Incorrect credentials or backend connection issue!');
+      const isNetworkError = err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('TypeError');
+      if (isNetworkError) {
+        setError(
+          lang === 'KU' 
+            ? 'پەیوەندی بە سێرڤەرەوە نەکرا! دڵنیابە لە کارکردنی Workers key و هێڵەکەت.' 
+            : lang === 'AR'
+            ? 'فصل الاتصال بالسيرفر! يرجى التأكد من تشغيل الـ Workers.'
+            : 'Could not connect to the backend server! Please verify your Workers and network.'
+        );
+      } else {
+        setError(err.message || (lang === 'KU' ? 'زانیارییەکان تەواو نین یان هەڵەن!' : 'Incorrect credentials or backend connection issue!'));
+      }
     } finally {
       setLoading(false);
     }
