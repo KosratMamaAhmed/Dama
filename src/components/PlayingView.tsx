@@ -29,7 +29,7 @@ interface PlayingViewProps {
   pieceStyle: string;
   requestHint: () => void;
   deductActivePenalty: () => void;
-  setScreen: (screen: 'HOME' | 'PLAYING' | 'RULES') => void;
+  handleBack: () => void;
   handleFullReset: () => void;
   t: any;
 }
@@ -63,7 +63,7 @@ export default function PlayingView({
   pieceStyle,
   requestHint,
   deductActivePenalty,
-  setScreen,
+  handleBack,
   handleFullReset,
   t
 }: PlayingViewProps) {
@@ -76,7 +76,7 @@ export default function PlayingView({
       className="w-full max-w-3xl py-1 md:py-2 flex flex-col items-center"
     >
       {/* OPPONENT AREA (ABOVE THE BOARD) - Nested in stylized decorative Console Game framing */}
-      <div className="w-full max-w-xl p-0.5 rounded-2xl bg-gradient-to-r from-neutral-800 via-amber-500/25 to-neutral-800 shadow-xl border border-white/10 mb-2 relative">
+      <div className="w-full max-w-2xl p-0.5 rounded-2xl bg-gradient-to-r from-neutral-800 via-amber-500/25 to-neutral-800 shadow-xl border border-white/10 mb-2 relative">
         <div className="bg-gradient-to-br from-black/90 to-[#0e0f14]/98 rounded-[14px] p-2.5 sm:p-3 flex items-center justify-between relative shadow-inner overflow-hidden">
           {/* Ambient lighting inside card */}
           <div className="absolute top-0 right-0 w-24 h-12 bg-amber-500/[0.04] blur-xl rounded-full pointer-events-none" />
@@ -176,7 +176,7 @@ export default function PlayingView({
 
       {/* Mandatory capture reminder banner */}
       {gameState.mustJumpPos && !gameState.winner && (
-         <div className="w-full max-w-xl text-[10px] sm:text-xs text-amber-400 bg-amber-400/10 px-3 py-1 rounded-lg font-bold flex items-center justify-center border border-amber-400/20 mb-1 animate-pulse">
+         <div className="w-full max-w-2xl text-[10px] sm:text-xs text-amber-400 bg-amber-400/10 px-3 py-1 rounded-lg font-bold flex items-center justify-center border border-amber-400/20 mb-1 animate-pulse">
            <AlertCircle className="w-3.5 h-3.5 rtl:ml-1.5 ltr:mr-1.5 shrink-0 text-amber-500" /> 
            <span>{t.MANDATORY}</span>
          </div>
@@ -197,10 +197,7 @@ export default function PlayingView({
           theme={theme}
           lang={lang}
           disabled={gameState.winner !== null || (mode === 'AI' && gameState.turn === 'WHITE')}
-          onGoHome={() => {
-            deductActivePenalty();
-            setScreen('HOME');
-          }}
+          onGoHome={handleBack}
           onRestart={handleFullReset}
           p1Name={player1Name.trim() || t.YOU}
           p2Name={player2Name.trim() || (mode === 'AI' ? t.AI_NAME : t.FRIEND)}
@@ -210,7 +207,7 @@ export default function PlayingView({
       </motion.div>
 
       {/* HUMAN AREA (BELOW THE BOARD) - Wrapped in premium glowing frame containing the integrated Get Hint utility */}
-      <div className="w-full max-w-xl p-0.5 rounded-2xl bg-gradient-to-r from-neutral-800 via-cyan-500/25 to-neutral-800 shadow-xl border border-white/10 mt-1 sm:mt-2 relative">
+      <div className="w-full max-w-2xl p-0.5 rounded-2xl bg-gradient-to-r from-neutral-800 via-cyan-500/25 to-neutral-800 shadow-xl border border-white/10 mt-1 sm:mt-2 relative">
         <div className="bg-gradient-to-br from-black/90 to-[#0a0d10]/98 rounded-[14px] p-2.5 sm:p-3 flex items-center justify-between relative shadow-inner overflow-hidden">
           {/* Subtle inside glow */}
           <div className="absolute bottom-0 left-0 w-24 h-12 bg-cyan-500/[0.04] blur-xl rounded-full pointer-events-none" />

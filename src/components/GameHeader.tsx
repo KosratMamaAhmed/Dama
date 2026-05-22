@@ -16,6 +16,7 @@ interface GameHeaderProps {
   deductActivePenalty: () => void;
   dispatch: any;
   handleFullReset: () => void;
+  handleBack: () => void;
 }
 
 export default function GameHeader({
@@ -30,6 +31,7 @@ export default function GameHeader({
   deductActivePenalty,
   dispatch,
   handleFullReset,
+  handleBack,
 }: GameHeaderProps) {
   return (
     <header className="flex justify-between items-center py-1.5 px-2.5 sm:px-4 lg:px-6 border-b border-white/5 backdrop-blur-md relative z-30 bg-black/35 select-none shrink-0">
@@ -59,10 +61,7 @@ export default function GameHeader({
           <div className="flex items-center gap-1.5">
             {/* Home/Exit button */}
             <button
-              onClick={() => {
-                deductActivePenalty();
-                setScreen('HOME');
-              }}
+              onClick={handleBack}
               className="p-1 px-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 transition-all duration-200 active:scale-90 cursor-pointer flex items-center justify-center gap-1 shadow-sm"
               title={lang === 'KU' ? 'سەرەکی' : lang === 'AR' ? 'القائمة الرئيسية' : 'Main Menu'}
             >

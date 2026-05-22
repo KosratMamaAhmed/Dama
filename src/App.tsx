@@ -23,11 +23,12 @@ import { PlayStorePoliciesModal, DamaRulesModal, AboutUsPortfolioModal } from '.
 import AnimatedBackground from './components/AnimatedBackground';
 import AISetupModal from './components/AISetupModal';
 import { BOT_CAPTURE_COMMENTS, BOT_SHOCKED_COMMENTS } from './data/botComments';
-
+import { App as CapApp } from '@capacitor/app';
 import GameHeader from './components/GameHeader';
 import HomeView from './components/HomeView';
 import PlayingView from './components/PlayingView';
 import RulesView from './components/RulesView';
+import DhikrNotification from './components/DhikrNotification';
 
 type ScreenType = 'HOME' | 'PLAYING' | 'RULES';
 
@@ -83,48 +84,7 @@ export default function App() {
   const [bubbleText, setBubbleText] = useState<string | null>(null);
   const [bubbleSender, setBubbleSender] = useState<'CYAN' | 'WHITE' | null>(null);
   const [cacheClearToast, setCacheClearToast] = useState(false);
-  const [activeDhikr, setActiveDhikr] = useState<string | null>(null);
   const bubbleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Periodic elegant 1-second Arabic Dhikr notification
-  useEffect(() => {
-    const ARABIC_DHIKRS = [
-      "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ",
-      "أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ",
-      "لَا إِلَٰهَ إِلَّا اللَّهُ",
-      "اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ",
-      "سُبْحَانَ اللَّهِ الْعَظِيمِ",
-      "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
-      "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
-      "اللَّهُ أَكْبَرُ کَبِيرًا",
-      "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ",
-      "يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ",
-      "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ سُبْحَانَ اللَّهِ العَظِيمِ"
-    ];
-
-    // Trigger first dhikr after 12 seconds, then every 18 seconds
-    const initialDelay = setTimeout(() => {
-      const idx = Math.floor(Math.random() * ARABIC_DHIKRS.length);
-      setActiveDhikr(ARABIC_DHIKRS[idx]);
-      setTimeout(() => {
-        setActiveDhikr(null);
-      }, 1000);
-    }, 12000);
-
-    const interval = setInterval(() => {
-      const idx = Math.floor(Math.random() * ARABIC_DHIKRS.length);
-      setActiveDhikr(ARABIC_DHIKRS[idx]);
-      // Disappear exactly after 1 second (1000ms)
-      setTimeout(() => {
-        setActiveDhikr(null);
-      }, 1000);
-    }, 20000);
-
-    return () => {
-      clearTimeout(initialDelay);
-      clearInterval(interval);
-    };
-  }, []);
 
   const handleClearCacheAndRefresh = () => {
     // Keep tokens absolutely safe
@@ -188,6 +148,25 @@ export default function App() {
     };
   }, []);
 
+useEffect(() => {
+  let backListener: any;
+  
+  const setupBackListener = async () => {
+    backListener = await CapApp.addListener('backButton', () => {
+      // بەکارهێنانی لۆجیکی handleBack کە بە وردی مۆداڵە گەشەکردووەکانی یارییەکە دادەخات
+      handleBack();
+    });
+  };
+
+  setupBackListener();
+
+  return () => {
+    if (backListener) {
+      backListener.remove();
+    }
+  };
+}, [handleBack]);
+
   useEffect(() => {
     if (screen !== 'PLAYING' || !timeAttack || gameState.winner) return;
 
@@ -196,7 +175,7 @@ export default function App() {
         setTimeAttackP1((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            dispatch({ type: 'HYDRATE_STATE', payload: { ...gameState, winner: 'WHITE' } });
+            dispatch({ type: 'SET_WINNER', payload: 'WHITE' });
             playSound('error');
             return 0;
           }
@@ -206,7 +185,7 @@ export default function App() {
         setTimeAttackP2((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            dispatch({ type: 'HYDRATE_STATE', payload: { ...gameState, winner: 'CYAN' } });
+            dispatch({ type: 'SET_WINNER', payload: 'CYAN' });
             playSound('win');
             return 0;
           }
@@ -216,7 +195,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [screen, timeAttack, gameState.turn, gameState.winner, playSound, gameState]);
+  }, [screen, timeAttack, gameState.turn, gameState.winner, playSound]);
 
   useEffect(() => {
     if (gameState.winner && !prevWinner.current) {
@@ -446,6 +425,33 @@ export default function App() {
   const [exitToast, setExitToast] = useState(false);
   const backPressTimeRef = useRef<number>(0);
 
+  const handleBack = () => {
+    const hasActiveModal = 
+      showPuzzles || showAcademy || showStats || showProfiles || 
+      showCampaign || showCoach || showPlayStorePolicies || 
+      showDamaRules || showAboutUsPortfolio || showAiSetupModal;
+
+    if (hasActiveModal || screen !== 'HOME') {
+      if (screen === 'PLAYING') {
+        deductActivePenalty();
+      }
+      
+      // Step backward in history cleanly
+      window.history.back();
+    } else {
+      // Double press back on root home screen (fallback for back key click)
+      const now = Date.now();
+      if (now - backPressTimeRef.current < 2000) {
+        setExitToast(false);
+        window.history.go(-1);
+      } else {
+        backPressTimeRef.current = now;
+        setExitToast(true);
+        setTimeout(() => setExitToast(false), 2000);
+      }
+    }
+  };
+
   // Initialize window history state on first-load to enable robust backtracking support
   useEffect(() => {
     if (!window.history.state) {
@@ -459,7 +465,8 @@ export default function App() {
         showCoach: false,
         showPlayStorePolicies: false,
         showDamaRules: false,
-        showAboutUsPortfolio: false
+        showAboutUsPortfolio: false,
+        showAiSetupModal: false
       }, '');
     }
   }, []);
@@ -476,13 +483,14 @@ export default function App() {
       showCoach,
       showPlayStorePolicies,
       showDamaRules,
-      showAboutUsPortfolio
+      showAboutUsPortfolio,
+      showAiSetupModal
     };
 
     const hasActiveModal = 
       showPuzzles || showAcademy || showStats || showProfiles || 
       showCampaign || showCoach || showPlayStorePolicies || 
-      showDamaRules || showAboutUsPortfolio;
+      showDamaRules || showAboutUsPortfolio || showAiSetupModal;
 
     const currentHistoryState = window.history.state;
 
@@ -497,7 +505,8 @@ export default function App() {
       !!currentHistoryState.showCoach === !!showCoach &&
       !!currentHistoryState.showPlayStorePolicies === !!showPlayStorePolicies &&
       !!currentHistoryState.showDamaRules === !!showDamaRules &&
-      !!currentHistoryState.showAboutUsPortfolio === !!showAboutUsPortfolio;
+      !!currentHistoryState.showAboutUsPortfolio === !!showAboutUsPortfolio &&
+      !!currentHistoryState.showAiSetupModal === !!showAiSetupModal;
 
     if (!matches) {
       window.history.pushState(currentState, '');
@@ -512,7 +521,8 @@ export default function App() {
     showCoach,
     showPlayStorePolicies,
     showDamaRules,
-    showAboutUsPortfolio
+    showAboutUsPortfolio,
+    showAiSetupModal
   ]);
 
   useEffect(() => {
@@ -535,12 +545,13 @@ export default function App() {
         setShowPlayStorePolicies(!!s.showPlayStorePolicies);
         setShowDamaRules(!!s.showDamaRules);
         setShowAboutUsPortfolio(!!s.showAboutUsPortfolio);
+        setShowAiSetupModal(!!s.showAiSetupModal);
       } else {
         // Fallback default back sequence
         const hasActiveModal = 
           showPuzzles || showAcademy || showStats || showProfiles || 
           showCampaign || showCoach || showPlayStorePolicies || 
-          showDamaRules || showAboutUsPortfolio;
+          showDamaRules || showAboutUsPortfolio || showAiSetupModal;
 
         if (hasActiveModal) {
           setShowPuzzles(false);
@@ -552,6 +563,7 @@ export default function App() {
           setShowPlayStorePolicies(false);
           setShowDamaRules(false);
           setShowAboutUsPortfolio(false);
+          setShowAiSetupModal(false);
         } else if (screen !== 'HOME') {
           if (screen === 'PLAYING') {
             deductActivePenalty();
@@ -574,8 +586,17 @@ export default function App() {
     };
 
     window.addEventListener('popstate', handlePopState);
+    
+    // Add custom Cordova / Capacitor physical backbutton listener to prevent immediate WebView exits
+    const handleAndroidBackButton = (e: Event) => {
+      e.preventDefault();
+      handleBack();
+    };
+    document.addEventListener('backbutton', handleAndroidBackButton, false);
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('backbutton', handleAndroidBackButton, false);
     };
   }, [
     screen, 
@@ -588,6 +609,7 @@ export default function App() {
     showPlayStorePolicies, 
     showDamaRules, 
     showAboutUsPortfolio,
+    showAiSetupModal,
     tokens
   ]);
   const cyanCount = gameState.board.flat().filter((p: any) => p && p.player === 'CYAN').length;
@@ -612,6 +634,7 @@ export default function App() {
         deductActivePenalty={deductActivePenalty}
         dispatch={dispatch}
         handleFullReset={handleFullReset}
+        handleBack={handleBack}
       />
 
       <main className="flex-1 w-full flex flex-col items-center p-4 sm:p-6 md:p-8 relative z-10 overflow-y-auto min-h-0">
@@ -673,7 +696,7 @@ export default function App() {
               pieceStyle={pieceStyle}
               requestHint={requestHint}
               deductActivePenalty={deductActivePenalty}
-              setScreen={setScreen}
+              handleBack={handleBack}
               handleFullReset={handleFullReset}
               t={t}
             />
@@ -682,7 +705,7 @@ export default function App() {
           {screen === 'RULES' && (
             <RulesView
               lang={lang}
-              setScreen={setScreen}
+              onBack={handleBack}
               t={t}
             />
           )}
@@ -714,7 +737,7 @@ export default function App() {
       <AnimatePresence>
         <AISetupModal
           isOpen={showAiSetupModal}
-          onClose={() => setShowAiSetupModal(false)}
+          onClose={handleBack}
           lang={lang}
           playerName={player1Name}
           setPlayerName={setPlayer1Name}
@@ -746,39 +769,22 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* 1-Second Arabic Dhikr Notification Overlay */}
-      <AnimatePresence>
-        {activeDhikr && (
-          <motion.div
-            initial={{ opacity: 0, y: -45, scale: 0.85 }}
-            animate={{ opacity: 1, y: 16, scale: 1 }}
-            exit={{ opacity: 0, y: -25, scale: 0.85 }}
-            transition={{ duration: 0.2 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-6 py-2 rounded-full bg-[#051a14]/95 border-2 border-emerald-500/40 shadow-[0_10px_35px_rgba(16,185,129,0.35)] text-emerald-300 text-sm font-bold flex items-center gap-2.5 backdrop-blur-md cursor-default pointer-events-none"
-            dir="rtl"
-            id="dhikr-notification-toast"
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-            <span className="font-semibold text-xs sm:text-sm tracking-wide select-none drop-shadow-sm font-sans">
-              {activeDhikr}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Independent 2-Second Arabic Dhikr Periodic Notification Overlay */}
+      <DhikrNotification />
 
       {/* 4 Custom Offline Modules Overlay/Modals */}
       <AnimatePresence>
         {showAcademy && (
           <AcademyPanel
             lang={lang}
-            onClose={() => setShowAcademy(false)}
+            onClose={handleBack}
           />
         )}
         
         {showPuzzles && (
           <PuzzlesPanel
             lang={lang}
-            onClose={() => setShowPuzzles(false)}
+            onClose={handleBack}
             playSound={playSound}
             soundEnabled={soundEnabled}
             onCoinsUpdated={() => {
@@ -791,7 +797,7 @@ export default function App() {
         {showStats && (
           <StatsDashboard
             lang={lang}
-            onClose={() => setShowStats(false)}
+            onClose={handleBack}
             onProfileUpdated={() => {
               setP1Profile(getProfiles().p1);
               setP2Profile(getProfiles().p2);
@@ -802,7 +808,7 @@ export default function App() {
         {showProfiles && (
           <ProfilesModal
             lang={lang}
-            onClose={() => setShowProfiles(false)}
+            onClose={handleBack}
             onSaved={() => {
               const updated = getProfiles();
               setP1Profile(updated.p1);
@@ -816,7 +822,7 @@ export default function App() {
         {showCampaign && (
           <CampaignPanel
             lang={lang}
-            onClose={() => setShowCampaign(false)}
+            onClose={handleBack}
             onChallenge={startCampaignChallenge}
           />
         )}
@@ -824,28 +830,28 @@ export default function App() {
         {showCoach && (
           <CoachPanel
             lang={lang}
-            onClose={() => setShowCoach(false)}
+            onClose={handleBack}
           />
         )}
 
         {showPlayStorePolicies && (
           <PlayStorePoliciesModal
             lang={lang}
-            onClose={() => setShowPlayStorePolicies(false)}
+            onClose={handleBack}
           />
         )}
 
         {showDamaRules && (
           <DamaRulesModal
             lang={lang}
-            onClose={() => setShowDamaRules(false)}
+            onClose={handleBack}
           />
         )}
 
         {showAboutUsPortfolio && (
           <AboutUsPortfolioModal
             lang={lang}
-            onClose={() => setShowAboutUsPortfolio(false)}
+            onClose={handleBack}
           />
         )}
       </AnimatePresence>

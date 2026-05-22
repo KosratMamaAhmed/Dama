@@ -17,6 +17,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     return action.payload;
   }
 
+  if (action.type === 'SET_WINNER') {
+    return {
+      ...state,
+      winner: action.payload,
+    };
+  }
+
   if (action.type === 'RESET_GAME') {
     return {
       ...initialGameState,

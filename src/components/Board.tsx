@@ -80,11 +80,11 @@ export default function Board({ gameState, dispatch, theme = 'CLASSIC_WOOD', pie
   if (!gameState || !gameState.board) return null;
 
   return (
-    <div className="relative flex flex-col items-center select-none w-full max-w-[420px]">
+    <div className="relative flex flex-col items-center select-none w-full max-w-2xl px-1 sm:px-2">
       
       {/* چوارچێوەی تەختەکە */}
       <div 
-        className={`grid grid-cols-8 gap-0 p-1 sm:p-2 rounded-xl sm:rounded-2xl shadow-[0_20px_45px_rgba(0,0,0,0.65)] border-4 ${colors.border} ${colors.light}`}
+        className={`grid grid-cols-8 gap-0 p-1 sm:p-2.5 rounded-xl sm:rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border-4 ${colors.border} ${colors.light}`}
       >
         {gameState.board.map((row: any[], r: number) =>
           row.map((piece: any, c: number) => {
@@ -102,7 +102,7 @@ export default function Board({ gameState, dispatch, theme = 'CLASSIC_WOOD', pie
                 key={`cell-${r}-${c}`}
                 onClick={() => handleSquareClick(r, c)}
                 className={`
-                  relative w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center transition-all duration-200 cursor-pointer
+                  relative w-[11.8vw] h-[11.8vw] min-[390px]:w-[12vw] min-[390px]:h-[12vw] sm:w-[72px] sm:h-[72px] md:w-[82px] md:h-[82px] lg:w-[88px] lg:h-[88px] flex items-center justify-center transition-all duration-200 cursor-pointer
                   ${isDark ? colors.dark : colors.light}
                   ${isSelected ? 'ring-inset ring-4 ring-cyan-400 brightness-125 z-10 scale-105 rounded-lg shadow-lg' : ''}
                   ${isMustJump ? 'ring-inset ring-4 ring-rose-500 animate-pulse z-10 rounded-lg' : ''}

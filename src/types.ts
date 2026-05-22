@@ -47,4 +47,5 @@ export type GameAction =
   | { type: 'UNDO_MOVE' }
   | { type: 'USE_HINT'; payload: HintPosition }
   | { type: 'HYDRATE_STATE'; payload: GameState }
+  | { type: 'SET_WINNER'; payload: Player | null }
   | { type: 'CLEAR_MUST_JUMP_WARNING' };

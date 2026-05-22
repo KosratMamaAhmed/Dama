@@ -6,11 +6,11 @@ import { Language } from '../translations';
 
 interface RulesViewProps {
   lang: Language;
-  setScreen: (screen: 'HOME' | 'PLAYING' | 'RULES') => void;
+  onBack: () => void;
   t: any;
 }
 
-export default function RulesView({ lang, setScreen, t }: RulesViewProps) {
+export default function RulesView({ lang, onBack, t }: RulesViewProps) {
   return (
     <motion.div
       key="rules"
@@ -23,7 +23,7 @@ export default function RulesView({ lang, setScreen, t }: RulesViewProps) {
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl translate-y-10 -translate-x-10" />
 
       <button 
-        onClick={() => setScreen('HOME')}
+        onClick={onBack}
         className="flex items-center space-x-2 space-x-reverse text-neutral-300 hover:text-white mb-6 py-2 px-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer text-xs font-black shadow-inner"
       >
         <ChevronLeft className="w-4 h-4 rtl:scale-x-[-1] text-cyan-400" />

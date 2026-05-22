@@ -5,6 +5,21 @@ export function useDropSound() {
 
   const playSound = useCallback((type: 'move' | 'capture' | 'win' | 'error' | 'king' = 'move') => {
     try {
+      // Trigger native Android haptic vibration feedback for gaming physics feedback
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+        if (type === 'move') {
+          window.navigator.vibrate(18);
+        } else if (type === 'capture') {
+          window.navigator.vibrate([25, 35, 25]);
+        } else if (type === 'king') {
+          window.navigator.vibrate([20, 30, 20, 40]);
+        } else if (type === 'win') {
+          window.navigator.vibrate([120, 60, 120, 60, 180]);
+        } else if (type === 'error') {
+          window.navigator.vibrate(75);
+        }
+      }
+
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
