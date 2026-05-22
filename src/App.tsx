@@ -23,7 +23,6 @@ import { PlayStorePoliciesModal, DamaRulesModal, AboutUsPortfolioModal } from '.
 import AnimatedBackground from './components/AnimatedBackground';
 import AISetupModal from './components/AISetupModal';
 import { BOT_CAPTURE_COMMENTS, BOT_SHOCKED_COMMENTS } from './data/botComments';
-import { App as CapApp } from '@capacitor/app';
 import GameHeader from './components/GameHeader';
 import HomeView from './components/HomeView';
 import PlayingView from './components/PlayingView';
@@ -148,24 +147,6 @@ export default function App() {
     };
   }, []);
 
-useEffect(() => {
-  let backListener: any;
-  
-  const setupBackListener = async () => {
-    backListener = await CapApp.addListener('backButton', () => {
-      // بەکارهێنانی لۆجیکی handleBack کە بە وردی مۆداڵە گەشەکردووەکانی یارییەکە دادەخات
-      handleBack();
-    });
-  };
-
-  setupBackListener();
-
-  return () => {
-    if (backListener) {
-      backListener.remove();
-    }
-  };
-}, [handleBack]);
 
   useEffect(() => {
     if (screen !== 'PLAYING' || !timeAttack || gameState.winner) return;
