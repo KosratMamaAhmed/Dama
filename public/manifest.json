@@ -1,30 +1,22 @@
 {
-  "name": "دامەی کوردی _ لەگەڵ ئەم بەرناامەیە کاتێکی خۆش بەسەر بەرەوە",
-  "short_name": "دامەی کوردی",
-  "description": "کلاسیک دامەی کوردی",
-  "start_url": "/",
+  "name": "Dama Offline",
+  "short_name": "Dama",
+  "start_url": ".",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#030712",
-  "theme_color": "#030712",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "description": "Play Dama entirely offline against AI or friends.",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/ic_192.png",
-      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "sizes": "192x192"
     },
     {
       "src": "/ic_512.png",
-      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/iphon_ic.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
+      "sizes": "512x512"
     }
   ]
 }

@@ -3,7 +3,7 @@ import { useCallback, useRef } from 'react';
 export function useDropSound() {
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const playSound = useCallback((type: 'move' | 'capture' | 'win' = 'move') => {
+  const playSound = useCallback((type: 'move' | 'capture' | 'win' | 'error' = 'move') => {
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -34,6 +34,12 @@ export function useDropSound() {
         oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
         gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      } else if (type === 'error') {
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(120, audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(100, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
       } else {
         oscillator.type = 'sine';
         oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);

@@ -36,11 +36,6 @@ export default function Piece({ piece, styleType = 'WHITE_BLACK' }: any) {
         ? 'bg-gradient-to-br from-emerald-400 to-emerald-800 shadow-[inset_-2px_-5px_10px_rgba(0,0,0,0.5),2px_4px_6px_rgba(0,0,0,0.4)] border-emerald-600' 
         : 'bg-gradient-to-br from-rose-400 to-rose-800 shadow-[inset_-2px_-5px_10px_rgba(0,0,0,0.5),2px_4px_6px_rgba(0,0,0,0.4)] border-rose-600 text-white';
       break;
-    case 'WOODEN_ROCK': // بەردی تەختە و قاوەیی
-      pieceClass = piece.player === 'CYAN' 
-        ? 'bg-[#e6c280] shadow-[inset_-3px_-5px_8px_rgba(0,0,0,0.4),3px_5px_6px_rgba(0,0,0,0.3)] border-[#b89554]' 
-        : 'bg-[#5c4033] shadow-[inset_-3px_-5px_8px_rgba(0,0,0,0.6),3px_5px_6px_rgba(0,0,0,0.5)] border-[#3e2723] text-white';
-      break;
     default:
       pieceClass = piece.player === 'CYAN' 
         ? 'bg-gradient-to-br from-white to-gray-300 shadow-md border-gray-400' 

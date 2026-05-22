@@ -8,6 +8,8 @@ export const initialGameState: GameState = {
   mustJumpPos: null,
   winner: null,
   history: [],
+  hintsLeft: 5,
+  hintPos: null,
 };
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -20,7 +22,23 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       ...initialGameState,
       board: getInitialBoard(),
       history: [],
+      hintsLeft: 5,
+      hintPos: null,
+      mustJumpWarning: false,
     };
+  }
+
+  if (action.type === 'CLEAR_MUST_JUMP_WARNING') {
+    return {
+      ...state,
+      mustJumpWarning: false,
+    };
+  }
+
+  if (action.type === 'USE_HINT') {
+    if (state.hintsLeft > 0) {
+      return { ...state, hintsLeft: state.hintsLeft - 1, hintPos: action.payload };
+    }
   }
 
   if (action.type === 'UNDO_MOVE') {
@@ -33,6 +51,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       mustJumpPos: previous.mustJumpPos,
       selectedPos: null,
       winner: null,
+      hintPos: null,
       history: state.history.slice(0, -1),
     };
   }
@@ -46,7 +65,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       // Rule: If MUST jump combo is active, MUST select that piece
       if (state.mustJumpPos) {
         if (r !== state.mustJumpPos.r || c !== state.mustJumpPos.c) {
-          return state;
+          return { ...state, mustJumpWarning: true };
         }
       } else {
         // Rule: Mandatory jump restriction
@@ -54,11 +73,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         if (globalJumps) {
           const moves = getMovesForPiece(state.board, r, c);
           if (!moves.some((m) => m.type === 'jump')) {
-            return state; // Can't select this, must pick piece with jump
+            return { ...state, mustJumpWarning: true }; // Can't select this, must pick piece with jump
           }
         }
       }
-      return { ...state, selectedPos: { r, c } };
+      return { ...state, selectedPos: { r, c }, mustJumpWarning: false };
     }
 
     // Try executing a move to an empty square
@@ -85,7 +104,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         };
 
         // Apply Move
-        const newBoard = state.board.map((row) => [...row]);
+        const newBoard = state.board.map((row) => row.map(cell => cell ? { ...cell } : null));
         const piece = newBoard[pos.r][pos.c]!;
         newBoard[pos.r][pos.c] = null;
         newBoard[r][c] = piece;
@@ -160,6 +179,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             selectedPos: { r, c },
             mustJumpPos: { r, c },
             history: newHistory,
+            hintPos: null,
           };
         } else {
           const nextTurn = state.turn === 'CYAN' ? 'WHITE' : 'CYAN';
@@ -172,6 +192,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             mustJumpPos: null,
             winner,
             history: newHistory,
+            hintPos: null,
           };
         }
       }
