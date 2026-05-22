@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getProfiles, getMatchHistory, ACHIEVEMENTS, TITLES, FRAMES } from '../store/profileStore';
-import { Trophy, BarChart3, History, Award, Calendar, Zap, RefreshCw, Star, Info, Coins, Timer, Smile } from 'lucide-react';
+import { Trophy, BarChart3, History, Award, Calendar, Zap, RefreshCw, Star, Info, Coins, Timer, Smile, ChevronLeft } from 'lucide-react';
+import { TRANSLATIONS } from '../translations';
 
 interface StatsDashboardProps {
   lang: 'KU' | 'EN' | 'AR';
@@ -24,14 +25,14 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
 
   // Clear log history
   const clearHistory = () => {
-    if (confirm(lang === 'KU' ? 'ئایا دڵنیای لە سڕینەوەی تەواوی مێژووی یارییەکانت؟' : 'Are you sure you want to erase match records?')) {
+    if (confirm(lang === 'KU' ? 'ئایا دڵنیای لە سڕینەوەی تەواوی مێژووی یارییەکانت؟' : lang === 'AR' ? 'هل أنت متأكد من مسح جميع السجلات؟' : 'Are you sure you want to erase match records?')) {
       localStorage.removeItem('dama_match_history');
       onProfileUpdated();
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/92 backdrop-blur-md flex items-center justify-center z-[110] p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/92 backdrop-blur-md flex items-center justify-center z-[110] p-4 pt-[env(safe-area-inset-top,1rem)] pb-[env(safe-area-inset-bottom,1rem)] pl-[env(safe-area-inset-left,1rem)] pr-[env(safe-area-inset-right,1rem)] overflow-y-auto">
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -39,7 +40,15 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
         className="bg-slate-900 border-2 border-amber-500/35 w-full max-w-4xl rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(245,158,11,0.25)] flex flex-col h-[580px]"
       >
         {/* Top Header with Profile summary */}
-        <div className="bg-slate-950 p-4 sm:p-6 border-b border-amber-500/15 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-slate-950 p-4 sm:p-6 border-b border-amber-500/15 flex flex-col sm:flex-row items-center justify-between gap-4 relative">
+          {/* Circular Clean Back Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 bg-white/5 hover:bg-neutral-800 border border-white/10 hover:border-amber-500/50 p-1.5 rounded-lg text-neutral-450 hover:text-amber-400 transition-all active:scale-90 cursor-pointer flex items-center justify-center z-10"
+            title={TRANSLATIONS[lang].BACK_TEXT}
+          >
+            <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+          </button>
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/30`}>
               <BarChart3 className="w-6 h-6 text-amber-500" />
@@ -64,7 +73,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
             <div className="bg-slate-900 px-3 py-1.5 rounded-xl border border-white/5 flex items-center gap-2">
               <Coins className="w-4 h-4 text-yellow-400" />
               <div>
-                <p className="text-[9px] text-neutral-500 font-black uppercase">{lang === 'KU' ? 'سکەکان' : 'Coins'}</p>
+                <p className="text-[9px] text-neutral-500 font-black uppercase">{TRANSLATIONS[lang].COINS_TEXT}</p>
                 <p className="text-xs font-black text-white">{p1.coinCount}</p>
               </div>
             </div>
@@ -72,7 +81,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
             <div className="bg-slate-900 px-3 py-1.5 rounded-xl border border-white/5 flex items-center gap-2">
               <Zap className="w-4 h-4 text-orange-500 animate-pulse" />
               <div>
-                <p className="text-[9px] text-neutral-500 font-black uppercase">{lang === 'KU' ? 'بەردەوامی ململانێ' : 'Streak'}</p>
+                <p className="text-[9px] text-neutral-500 font-black uppercase">{TRANSLATIONS[lang].STREAK_TEXT}</p>
                 <p className="text-xs font-black text-white">{p1.currentWinStreak} 🔥</p>
               </div>
             </div>
@@ -113,7 +122,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
               >
                 {/* 1. Circle Win Rate chart */}
                 <div className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
-                  <h3 className="text-xs font-black text-amber-400 mb-4">{lang === 'KU' ? 'ڕێژەی بردنەوە' : 'Win Rate Ratio'}</h3>
+                  <h3 className="text-xs font-black text-amber-400 mb-4">{TRANSLATIONS[lang].WIN_RATE}</h3>
                   <div className="relative w-28 h-28 flex items-center justify-center">
                     <svg viewBox="0 0 100 100" className="w-full h-full rotate-[-90deg]">
                       <circle cx="50" cy="50" r={circleRadius} stroke="#1e293b" strokeWidth="10" fill="transparent" />
@@ -128,17 +137,17 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
                     </svg>
                     <div className="absolute flex flex-col items-center">
                       <span className="text-xl font-black text-white">{winRate}%</span>
-                      <span className="text-[8px] font-extrabold text-neutral-500 uppercase">{lang === 'KU' ? 'بردنەوە' : 'Wins'}</span>
+                      <span className="text-[8px] font-extrabold text-neutral-500 uppercase">{TRANSLATIONS[lang].WINS_TEXT}</span>
                     </div>
                   </div>
 
                   <div className="flex gap-4 mt-4 w-full justify-around pt-2 border-t border-white/5">
                     <div>
-                      <p className="text-[10px] text-neutral-500 font-bold">{lang === 'KU' ? 'بردنەوەکان' : 'Wins'}</p>
+                      <p className="text-[10px] text-neutral-500 font-bold">{TRANSLATIONS[lang].WINS_TEXT}</p>
                       <p className="text-xs font-black text-emerald-400">{p1.totalWins}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-neutral-500 font-bold">{lang === 'KU' ? 'دۆڕانەکان' : 'Losses'}</p>
+                      <p className="text-[10px] text-neutral-500 font-bold">{TRANSLATIONS[lang].LOSSES_TEXT}</p>
                       <p className="text-xs font-black text-rose-400">{p1.totalLosses}</p>
                     </div>
                   </div>
@@ -147,14 +156,14 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
                 {/* 2. Horizontal Breakdown details */}
                 <div className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 space-y-4">
                   <h3 className="text-xs font-black text-amber-400 border-b border-white/5 pb-2">
-                    {lang === 'KU' ? 'جوانکاری و سەرکێشییەکان' : 'Checkers Captured Details'}
+                    {lang === 'KU' ? 'جوانکاری و سەرکێشییەکان' : lang === 'AR' ? 'تفاصيل عملية الأكل' : 'Checkers Captured Details'}
                   </h3>
 
                   <div className="space-y-3">
                     {/* Captured Checkers bar */}
                     <div>
                       <div className="flex justify-between text-[10px] font-black text-neutral-400 mb-1">
-                        <span>{lang === 'KU' ? 'کۆی بەردی خوراو' : 'Total Pieces Captured'}</span>
+                        <span>{lang === 'KU' ? 'کۆی بەردی خوراو' : lang === 'AR' ? 'إجمالي الأحجار المأكولة' : 'Total Pieces Captured'}</span>
                         <span className="text-white font-mono">{p1.totalJumpsCaptured}</span>
                       </div>
                       <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
@@ -168,7 +177,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
                     {/* Total Play matches bar */}
                     <div>
                       <div className="flex justify-between text-[10px] font-black text-neutral-400 mb-1">
-                        <span>{lang === 'KU' ? 'گەمە ئەنجامدراوەکان' : 'Total Games'}</span>
+                        <span>{TRANSLATIONS[lang].TOTAL_GAMES}</span>
                         <span className="text-white font-mono">{totalMatches}</span>
                       </div>
                       <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
@@ -183,7 +192,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
                     <div className="pt-2 flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-white/5">
                       <div className="flex items-center gap-1.5">
                         <Star className="w-4 h-4 text-yellow-400" />
-                        <span className="text-[10px] font-black text-neutral-300">{lang === 'KU' ? 'باشترین بردنەوەی لەسەریەک' : 'Best Winning Streak'}</span>
+                        <span className="text-[10px] font-black text-neutral-300">{lang === 'KU' ? 'باشترین بردنەوەی لەسەریەک' : lang === 'AR' ? 'أفضل سلسلة انتصارات متتالية' : 'Best Winning Streak'}</span>
                       </div>
                       <span className="text-xs font-black text-yellow-400">{p1.longestWinStreak} 🔥</span>
                     </div>
@@ -193,7 +202,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
                 {/* 3. Level-wise column visualization */}
                 <div className="bg-slate-950/60 p-5 rounded-2xl border border-white/5 flex flex-col justify-between">
                   <h3 className="text-xs font-black text-amber-400 border-b border-white/5 pb-2">
-                    {lang === 'KU' ? 'شیکاری بەپێی ئاستەکان' : 'Strength indicators'}
+                    {lang === 'KU' ? 'شیکاری بەپێی ئاستەکان' : lang === 'AR' ? 'مؤشر أداء المستويات' : 'Strength indicators'}
                   </h3>
 
                   <div className="grid grid-cols-4 gap-2 items-end h-28 pt-2">
@@ -211,7 +220,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
                   </div>
 
                   <p className="text-[9px] text-neutral-500 font-bold text-center mt-3">
-                    {lang === 'KU' ? 'ئاستە پێبووەکەت نیشان دەدات لە مێژوودا' : 'Visualized match level performance index'}
+                    {lang === 'KU' ? 'ئاستە پێبووەکەت نیشان دەدات لە مێژوودا' : lang === 'AR' ? 'مؤشر مرئي لمستوى أدائك العام' : 'Visualized match level performance index'}
                   </p>
                 </div>
               </motion.div>
@@ -270,30 +279,32 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
               </motion.div>
             )}
 
-            {activeTab === 'HISTORY' && (
-              <motion.div
-                key="history_view"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="space-y-4"
-              >
-                {history.length === 0 ? (
+              {activeTab === 'HISTORY' && (
+                <motion.div
+                  key="history_view"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-4"
+                >
+                  {history.length === 0 ? (
                   <div className="text-center py-14 bg-slate-950/40 rounded-2xl border border-white/5">
                     <Smile className="w-10 h-10 text-neutral-600 mx-auto mb-2 animate-bounce" />
                     <p className="text-xs text-neutral-500 font-black">
-                      {lang === 'KU' ? 'هیچ تۆمارێکی یاری نییە لە مێژوودا!' : 'No match logs stored on this device yet.'}
+                      {TRANSLATIONS[lang].NO_HISTORY}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                      <span className="text-[10px] text-neutral-500 font-black uppercase">{lang === 'KU' ? 'کۆتا ٣٠ یاریی بردنەوە و دۆڕان' : 'Last 30 rounds'}</span>
+                      <span className="text-[10px] text-neutral-500 font-black uppercase">
+                        {lang === 'KU' ? 'کۆتا ٣٠ یاریی بردنەوە و دۆڕان' : lang === 'AR' ? 'آخر ٣٠ مباراة تصفية' : 'Last 30 rounds'}
+                      </span>
                       <button
                         onClick={clearHistory}
                         className="text-[9px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-black py-1 px-2.5 rounded border border-rose-550/20 cursor-pointer"
                       >
-                        {lang === 'KU' ? 'پاککردنەوەی گشتی' : 'Clear Logs'}
+                        {TRANSLATIONS[lang].CLEAR_LOGS}
                       </button>
                     </div>
 
@@ -330,10 +341,10 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
 
                             <div className="text-right">
                               <p className={`text-xs font-black ${isWon ? 'text-emerald-400' : 'text-rose-450'}`}>
-                                {isWon ? (lang === 'KU' ? 'بردنەوە' : 'Victory') : (lang === 'KU' ? 'دۆڕان' : 'Defeat')}
+                                {isWon ? (lang === 'KU' ? 'بردنەوە' : lang === 'AR' ? 'فوز ممتع' : 'Victory') : (lang === 'KU' ? 'دۆڕان' : lang === 'AR' ? 'هزيمة' : 'Defeat')}
                               </p>
                               <p className="text-[9px] text-neutral-500 font-mono mt-0.5">
-                                +{log.piecesCaptured} {lang === 'KU' ? 'بەردی خوراو' : 'pieces captured'}
+                                +{log.piecesCaptured} {lang === 'KU' ? 'بەردی خوراو' : lang === 'AR' ? 'أحجار مأكولة' : 'pieces captured'}
                               </p>
                             </div>
                           </div>
@@ -353,7 +364,7 @@ export default function StatsDashboard({ lang, onClose, onProfileUpdated }: Stat
             onClick={onClose}
             className="py-2.5 px-6 bg-amber-500 hover:bg-amber-600 hover:scale-[1.02] active:scale-95 text-[#050508] font-black text-xs rounded-xl transition-all cursor-pointer shadow-md shadow-amber-500/10 border border-yellow-300/30"
           >
-            {lang === 'KU' ? 'گەڕانەوە بۆ ماڵەوە' : lang === 'AR' ? 'خروج' : 'Close Dashboard'}
+            {TRANSLATIONS[lang].CLOSE_TEXT}
           </button>
         </div>
       </motion.div>

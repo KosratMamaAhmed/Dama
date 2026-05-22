@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بەرنامەکانی زیاتر • Kosrat Dev Apps</title>
+  <!-- Beautiful Google Fonts supporting Kurdish languages -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;600;800;950&family=Space+Grotesk:wght@400;700;900&display=swap" rel="stylesheet">
+  <!-- Tailwind CDN for high speed modern styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Kufi Arabic"', 'sans-serif'],
+            display: ['"Space Grotesk"', '"Noto Kufi Arabic"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(circle at center, #110e08 0%, #030305 100%);
+      font-family: 'Noto Kufi Arabic', sans-serif;
+      overflow-x: hidden;
+    }
+    /* Elegant glow effect */
+    .app-card {
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .app-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 20px 40px rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.45);
+    }
+    /* Shimmer animation */
+    @keyframes shimmer {
+      0% { transform: translateX(-150%) skewX(-15deg); }
+      100% { transform: translateX(150%) skewX(-15deg); }
+    }
+    .shimmer-btn::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 60%; height: 100%;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent);
+      transform: translateX(-150%) skewX(-15deg);
+      animation: shimmer 3s infinite;
+    }
+  </style>
+</head>
+<body class="text-neutral-100 min-h-screen py-8 px-4 flex flex-col justify-between relative selection:bg-amber-500/30 selection:text-amber-200">
+
+  <!-- Background starry details -->
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#2a2211,transparent_70%)] opacity-30 -z-10"></div>
+  <div class="absolute top-1/3 left-1/4 w-96 h-96 bg-amber-500/5 blur-3xl rounded-full -z-10 animate-pulse"></div>
+  <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 blur-3xl rounded-full -z-10"></div>
+
+  <!-- Header Section -->
+  <header class="max-w-4xl mx-auto w-full text-center mt-6 mb-12 relative">
+    <div class="inline-block py-1.5 px-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-full text-xs font-black uppercase tracking-widest mb-4">
+      گەشەپێدەر کۆسرەت • Kosrat Portfolio
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-black text-white leading-tight tracking-tight mb-4 drop-shadow-md">
+      بینەری بەرنامە و <span class="bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">یارییە ناوازەکانمان بە 🚀</span>
+    </h1>
+    <p class="text-sm sm:text-base text-neutral-400 font-medium max-w-xl mx-auto leading-relaxed">
+      نوێترین و پێشکەوتووترین یاری و بەرنامەی کوردی بۆ سیستەمی ئەندرۆید و ئای ئۆ ئێس بە کوالێتیەکی جیهانی، گونجاو لەگەڵ هەموو ئامێرەکان!
+    </p>
+  </header>
+
+  <!-- Apps Grid Layout -->
+  <main class="max-w-5xl mx-auto w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-4 flex-1">
+    
+    <!-- App 1: Dama King Pro -->
+    <div class="app-card bg-[#0a0a0f]/95 border border-white/5 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-amber-500/5 blur-xl rounded-full"></div>
+      <div>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg shadow-amber-500/20 shadow-inner">
+            👑
+          </div>
+          <div>
+            <h3 class="text-base font-black text-white">پاشای دامە</h3>
+            <span class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-md font-extrabold uppercase mt-1 inline-block">یاری ستراتیژ</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 font-bold leading-relaxed mb-6">
+          پێشکەوتووترین یاری دامەی کوردی مۆبایل لە خۆگری زیرەکی دەستکردی سیستەم، مۆدی پاڵەوانیەتی نێودەوڵەتی و ڕکابەری مەلیکی!
+        </p>
+      </div>
+      <a href="/" target="_self" class="shimmer-btn relative w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 text-center font-black text-xs rounded-xl shadow-lg shadow-amber-500/10 transition active:scale-95 block overflow-hidden">
+        یاریکردنی ئێستا مۆبایل 🎮
+      </a>
+    </div>
+
+    <!-- App 2: Kurdish Keyboard Pro -->
+    <div class="app-card bg-[#0a0a0f]/95 border border-white/5 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-cyan-500/5 blur-xl rounded-full"></div>
+      <div>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-14 h-14 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg shadow-cyan-500/20 shadow-inner">
+            ⌨️
+          </div>
+          <div>
+            <h3 class="text-base font-black text-white">تەختەکلیلی کوردی</h3>
+            <span class="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-md font-extrabold uppercase mt-1 inline-block">ئامرازەکان</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 font-bold leading-relaxed mb-6">
+          خێراترین و پڕ تایبەتمەندترین تەختەکلیلی کوردی بۆ نوسینی پیتی لاتینی و سۆرانی بە تەواوی ئیمۆجی و خەسڵەتی پێشبینیکردنی زیرەکی ووشەکان.
+        </p>
+      </div>
+      <button onclick="alert('بەم زوانە بەشێوازێکی فەرمی لە گووگڵ پلەی بڵاودەکرێتەوە! ☀️')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-center font-black text-xs rounded-xl border border-white/10 transition active:scale-95 block">
+        دابەزاندن لە پلەی ستۆر 📥
+      </button>
+    </div>
+
+    <!-- App 3: Kurdish English Translator -->
+    <div class="app-card bg-[#0a0a0f]/95 border border-white/5 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-indigo-500/5 blur-xl rounded-full"></div>
+      <div>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-14 h-14 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg shadow-indigo-500/20 shadow-inner">
+            📚
+          </div>
+          <div>
+            <h3 class="text-base font-black text-white">فەرهەنگی کوردی پێشکەوتوو</h3>
+            <span class="text-[10px] bg-indigo-500/10 text-indigo-455 border border-indigo-500/20 px-2 py-0.5 rounded-md font-extrabold uppercase mt-1 inline-block">فێربوون</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 font-bold leading-relaxed mb-6">
+          باشترین و گشتگیرترین فەرهەنگ و وەرگێڕی خێرای ئینگلیزی بۆ کوردی و بەپێچەوانەوە، لەگەڵ خوێندنەوەی دەنگی سەرجەم ووشە و ڕستەکان.
+        </p>
+      </div>
+      <button onclick="alert('بەم زوانە بەشێوازێکی فەرمی لە گووگڵ پلەی بڵاودەکرێتەوە! ☀️')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-center font-black text-xs rounded-xl border border-white/10 transition active:scale-95 block">
+        دابەزاندن لە پلەی ستۆر 📥
+      </button>
+    </div>
+
+    <!-- App 4: Secure Guard & Proxy -->
+    <div class="app-card bg-[#0a0a0f]/95 border border-white/5 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 blur-xl rounded-full"></div>
+      <div>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-14 h-14 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg shadow-emerald-500/20 shadow-inner">
+            🛡️
+          </div>
+          <div>
+            <h3 class="text-base font-black text-white">پارێزەری خێرا</h3>
+            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-extrabold uppercase mt-1 inline-block">پاراستن</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 font-bold leading-relaxed mb-6">
+          ڕاگری ئاسایش و خێراکردنی ئینتەرنێت، فلتەرکردنی ڕیکلامە بێزارکەرەکان لەناو ئەپڵیکەیشنە جیاوازەکان و پاراستنی پڕایڤسی مۆبایلەکەت!
+        </p>
+      </div>
+      <button onclick="alert('بەم زوانە بەشێوازێکی فەرمی لە گووگڵ پلەی بڵاودەکرێتەوە! ☀️')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-center font-black text-xs rounded-xl border border-white/10 transition active:scale-95 block">
+        دابەزاندن لە پلەی ستۆر 📥
+      </button>
+    </div>
+
+    <!-- App 5: Kurdish Radio Online -->
+    <div class="app-card bg-[#0a0a0f]/95 border border-white/5 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-rose-500/5 blur-xl rounded-full"></div>
+      <div>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-14 h-14 bg-gradient-to-br from-rose-400 to-pink-500 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg shadow-rose-500/20 shadow-inner">
+            📻
+          </div>
+          <div>
+            <h3 class="text-base font-black text-white">ڕادیۆی کوردی ڕاستەوخۆ</h3>
+            <span class="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-md font-extrabold uppercase mt-1 inline-block">میدیا</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 font-bold leading-relaxed mb-6">
+          گوێبیستی سەرجەم ڕادیۆ کوردیەکان بە لە هەر شوێنێکی جیهان بیت بە کەمترین هێڵی ئینتەرنێت و کوالێتیەکی بێگەردی دەنگی بێ پچڕان.
+        </p>
+      </div>
+      <button onclick="alert('بەم زوانە بەشێوازێکی فەرمی لە گووگڵ پلەی بڵاودەکرێتەوە! ☀️')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-center font-black text-xs rounded-xl border border-white/10 transition active:scale-95 block">
+        دابەزاندن لە گووگڵ پلەی 📥
+      </button>
+    </div>
+
+    <!-- App 6: Kurdish Quotes Daily -->
+    <div class="app-card bg-[#0a0a0f]/95 border border-white/5 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-rose-500/5 blur-xl rounded-full"></div>
+      <div>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-14 h-14 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg shadow-violet-500/20 shadow-inner">
+            ✍️
+          </div>
+          <div>
+            <h3 class="text-base font-black text-white">وتەی ڕۆژانەی کوردی</h3>
+            <span class="text-[10px] bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-md font-extrabold uppercase mt-1 inline-block">ڕۆشنبیری</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 font-bold leading-relaxed mb-6">
+          کۆمەڵە وتەی ناوداران، حیکمەت و پەندی پێشینان، نوسراو و دیزاینکراو لەسەر وێنەی ناوازە بە گەیاندنی ڕۆژانەی نوتیفیکەیشن بە مۆبایلەکەت.
+        </p>
+      </div>
+      <button onclick="alert('بەم زوانە بەشێوازێکی فەرمی لە گووگڵ پلەی بڵاودەکرێتەوە! ☀️')" class="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-center font-black text-xs rounded-xl border border-white/10 transition active:scale-95 block">
+        دابەزاندن لە گووگڵ پلەی 📥
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Footer Section -->
+  <footer class="max-w-4xl mx-auto w-full text-center py-8 border-t border-white/5 mt-16 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-bold text-neutral-500">
+    <div>
+      مافی گەشەپێدان پارێزراوە بۆ سەرجەم ئەپەکان © 2026 Kosrat Dev
+    </div>
+    <div class="flex gap-4">
+      <a href="/" target="_self" class="hover:text-amber-400 transition">سەرەکی یاری دامە 🎮</a>
+      <span>•</span>
+      <a href="/kosrat.html" target="_self" class="hover:text-amber-400 transition">گەشەپێدەر کۆسرەت 👤</a>
+    </div>
+  </footer>
+
+</body>
+</html>

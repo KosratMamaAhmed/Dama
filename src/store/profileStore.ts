@@ -235,23 +235,7 @@ export function checkAndUnlockAchievements(
 
   const unlockedNow: Achievement[] = [];
 
-  // Update stats
-  profile.gamesPlayed += 1;
-  if (matchDetails.won) {
-    profile.totalWins += 1;
-    profile.currentWinStreak += 1;
-    if (profile.currentWinStreak > profile.longestWinStreak) {
-      profile.longestWinStreak = profile.currentWinStreak;
-    }
-    // Award standard coins
-    profile.coinCount += matchDetails.difficulty === 'EXPERT' ? 15 : matchDetails.difficulty === 'HARD' ? 10 : 6;
-  } else {
-    profile.totalLosses += 1;
-    profile.currentWinStreak = 0;
-  }
-  profile.totalJumpsCaptured += matchDetails.opponentPiecesCaptured;
-
-  // Let's sweep achievements
+  // Let's sweep achievements using current updated profile metrics
   ACHIEVEMENTS.forEach((ach) => {
     if (profile.unlockedAchievements.includes(ach.id)) return;
 

@@ -1,6 +1,6 @@
 export type Player = 'CYAN' | 'WHITE';
 export type PieceType = 'MAN' | 'KING';
-export type GameMode = 'AI' | 'FRIEND';
+export type GameMode = 'AI' | 'FRIEND' | 'CAMPAIGN';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
 export type BoardTheme = 'CLASSIC_WOOD' | 'ROYAL_GOLD' | 'DARK_MARBLE';
 

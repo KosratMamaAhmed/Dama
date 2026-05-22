@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getProfiles, saveProfiles, AVATAR_LIST, FRAMES, TITLES, PlayerProfile } from '../store/profileStore';
-import { User, ShieldAlert, Award, Smile, Save, Check, Star } from 'lucide-react';
+import { User, ShieldAlert, Award, Smile, Save, Check, Star, ChevronLeft } from 'lucide-react';
 
 interface ProfilesModalProps {
   lang: 'KU' | 'EN' | 'AR';
@@ -82,7 +82,7 @@ export default function ProfilesModal({ lang, onClose, onSaved }: ProfilesModalP
   };
 
   return (
-    <div className="fixed inset-0 bg-black/92 backdrop-blur-md flex items-center justify-center z-[110] p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/92 backdrop-blur-md flex items-center justify-center z-[110] p-4 pt-[env(safe-area-inset-top,1rem)] pb-[env(safe-area-inset-bottom,1rem)] pl-[env(safe-area-inset-left,1rem)] pr-[env(safe-area-inset-right,1rem)] overflow-y-auto">
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -90,7 +90,15 @@ export default function ProfilesModal({ lang, onClose, onSaved }: ProfilesModalP
         className="bg-slate-900 border-2 border-amber-500/35 w-full max-w-4xl rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(245,158,11,0.25)] flex flex-col h-auto md:h-[580px]"
       >
         {/* Selector Header */}
-        <div className="bg-slate-950 p-4 sm:p-5 border-b border-amber-500/15 flex flex-col sm:flex-row shadow-md items-center justify-between gap-3">
+        <div className="bg-slate-950 p-4 sm:p-5 border-b border-amber-500/15 flex flex-col sm:flex-row shadow-md items-center justify-between gap-3 relative">
+          {/* Floating Clean Back Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 bg-white/5 hover:bg-neutral-800 border border-white/10 hover:border-amber-500/50 p-1.5 rounded-lg text-neutral-450 hover:text-amber-400 transition-all active:scale-90 cursor-pointer flex items-center justify-center z-10 shadow-lg"
+            title={lang === 'KU' ? 'گەڕانەوە' : 'Back'}
+          >
+            <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+          </button>
           <div className="flex items-center gap-2">
             <User className="w-6 h-6 text-[#fbbf24] animate-pulse" />
             <div>

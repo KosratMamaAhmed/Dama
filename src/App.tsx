@@ -5,7 +5,7 @@ import Board from './components/Board';
 import InstallPrompt from './components/InstallPrompt';
 import { RobotAvatar, KurdishManAvatar } from './components/Avatars';
 import { getTokens, saveTokens, addWinTokens, deductLossTokens, claimHourlyTokens, getZeroTokensTime } from './store/tokenStore';
-import { Play, Users, Cpu, Settings, Volume2, VolumeX, Home as HomeIcon, RefreshCw, Trophy, AlertCircle, ChevronLeft, Bot, User, Coins, Lightbulb } from 'lucide-react';
+import { Play, Users, Cpu, Settings, Volume2, VolumeX, Home as HomeIcon, RefreshCw, Trophy, AlertCircle, ChevronLeft, Bot, User, Coins, Lightbulb, ShieldCheck, BookOpen, UserCheck } from 'lucide-react';
 import { useDropSound } from './useSound';
 import { GameMode, Difficulty, BoardTheme, Player } from './types';
 import { TRANSLATIONS, Language } from './translations';
@@ -15,113 +15,36 @@ import AcademyPanel from './components/AcademyPanel';
 import PuzzlesPanel from './components/PuzzlesPanel';
 import StatsDashboard from './components/StatsDashboard';
 import ProfilesModal, { AvatarRenderer } from './components/ProfilesModal';
-import { getProfiles, checkAndUnlockAchievements, addMatchHistory, saveProfiles, TITLES } from './store/profileStore';
+import { getProfiles, TITLES } from './store/profileStore';
+import { handleEndGameStatistics } from './utils/gameMatchManager';
+import CampaignPanel, { CAMPAIGN_BOSSES } from './components/CampaignPanel';
+import CoachPanel from './components/CoachPanel';
+import { PlayStorePoliciesModal, DamaRulesModal, AboutUsPortfolioModal } from './components/ExtraModals';
+import AnimatedBackground from './components/AnimatedBackground';
+import AISetupModal from './components/AISetupModal';
+import { BOT_CAPTURE_COMMENTS, BOT_SHOCKED_COMMENTS } from './data/botComments';
+
+import GameHeader from './components/GameHeader';
+import HomeView from './components/HomeView';
+import PlayingView from './components/PlayingView';
+import RulesView from './components/RulesView';
 
 type ScreenType = 'HOME' | 'PLAYING' | 'RULES';
 
-const BOARD_THEMES_3: { id: BoardTheme; nameKu: string; nameEn: string; nameAr: string; colors: string }[] = [
-  { id: 'CLASSIC_WOOD', nameKu: 'تەختەی کلاسیک 🪵', nameEn: 'Classic Sablax Wood', nameAr: 'خشب كلاسيكي عتيق', colors: 'from-amber-800 to-stone-900' },
-  { id: 'ROYAL_GOLD', nameKu: 'لوکس و شاهانە 👑', nameEn: 'Royal Gold Luxury', nameAr: 'الذهبي الملكي الفاخر', colors: 'from-amber-600 to-yellow-950' },
-  { id: 'DARK_MARBLE', nameKu: 'مەڕمەڕی تاریک ✨', nameEn: 'Polished Dark Marble', nameAr: 'الرخام الأسود المصقول', colors: 'from-slate-800 to-slate-950' },
-];
-
-const PIECE_MATCHUPS_3 = [
-  { id: 'WHITE_BLACK', nameKu: 'سپی کریستاڵ و ڕەش', nameEn: 'Crystal White & Deep Black', nameAr: 'أبيض وأسود كلاسيكي' },
-  { id: 'GOLD_BLACK', nameKu: 'زێڕینی شاهانە و ڕەش', nameEn: 'Royal Gold & Jet Black', nameAr: 'ذهبي ملكي وأسود ملكي' },
-  { id: 'RUBY_EMERALD', nameKu: 'مرواری سەوز و سوور 💎', nameEn: 'Emerald Green & Ruby Red', nameAr: 'أخضر زمردي وأحمر ياقوتي' },
-];
-
-function AnimatedBackground() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none -z-20">
-      {/* Full screen retro checkerboard backdrop with subtle low-intensity warm gold reflections */}
-      <div className="absolute inset-0 classic-retro-checkers opacity-15 sm:opacity-20" />
-      
-      {/* Real-time moving checkers pattern layer to add life */}
-      <div className="absolute inset-0 animated-checkers opacity-10" />
-      
-      {/* Floating high-end cosmic golden stars/globes drifting in background */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full border border-amber-550/10"
-          style={{
-            width: `${i % 2 === 0 ? 35 : 55}px`,
-            height: `${i % 2 === 0 ? 35 : 55}px`,
-            background: i % 2 === 0 
-              ? 'radial-gradient(circle at 35% 35%, #fcb52c -5%, #b45309 60%, #1c0d02 100%)' 
-              : 'radial-gradient(circle at 35% 35%, #fbbf24 10%, #d97706 65%, #2d1000 100%)',
-            boxShadow: '0 8px 30px rgba(245, 158, 11, 0.12), inset 0 2px 4px rgba(255,255,255,0.15)',
-            top: `${10 + i * 15}%`,
-            left: `${5 + (i * 26) % 85}%`,
-            opacity: 0.16,
-          }}
-          animate={{
-            y: [0, -40, 0],
-            x: [0, 25, 0],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 18 + i * 5,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-      ))}
-      
-      {/* Elegant deep space backdrop vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.01)_0%,rgba(0,0,0,0.88)_75%,#020202_100%)]" />
-      
-      {/* Royal gold spotlight effect emanating from above */}
-      <div className="absolute top-0 left-0 right-0 h-96 bg-[radial-gradient(ellipse_at_top,rgba(245,158,11,0.06)_0%,transparent_70%)]" />
-    </div>
-  );
-}
-
-const BOT_CAPTURE_COMMENTS: Record<Language, string[]> = {
-  KU: [
-    "ئۆمێدی باشت بۆ دەخوازم! بەردێکی ترت ڕفێندرا! 😜🔥",
-    "زیرەکی دەستکار بەتەواوی بەهێزە، بیر لەوە بکەوە! 🤖📈",
-    "تۆزێک ئاگاداربە، ڕێگاکە زۆر تیژە چاوەکەم! 😎✨",
-    "چیتر ئەم بەردەت نەما، مەتامۆرفیک بوو! ♟️",
-  ],
-  EN: [
-    "Better luck next time! Another piece captured! 😜🔥",
-    "AI is supreme! Your defenses are falling! 🤖📈",
-    "Look closer next time, you can do better! 😎✨",
-    "Checkmate ideas? Not on my watch! ♟️",
-  ],
-  AR: [
-    "حظاً موفقاً المرة القادمة! لقد تم أكل حجرك! 😜🔥",
-    "أنا الذكاء الاصطناعي، خطتك مكشوفة أمامي! 🤖📈",
-    "ركز أكثر يا صديقي، اللعبة ما زالت طويلة! 😎✨",
-    "عذراً، ولكن هذا الحجر قد اختفى الآن! ♟️",
-  ]
-};
-
-const BOT_SHOCKED_COMMENTS: Record<Language, string[]> = {
-  KU: [
-    "ئای لەو جووڵەیە! زۆر لەوە زیرەکتر بووی کە پێشبینیم دەکرد! 😳💥",
-    "دەستخۆش! جوڵەیەکی زۆر سەرسوڕهێنەر بوو! 👏🧠",
-    "بۆستە! چۆن توانیت ئەم بەردەم پەلکێش بکەیت؟! 🤖📈",
-    "واو! چ چاوێکی دۆزەرەوە و بەهێزت هەیە! 👑🌟",
-  ],
-  EN: [
-    "What a masterstroke! You are brilliant! 😳💥",
-    "Exquisite choice! That move was genius! 👏🧠",
-    "Wait, how did you find that gap?! 🤖📈",
-    "Wow! Incredible foresight! 👑🌟",
-  ],
-  AR: [
-    "يا لها من حركة عبقرية! لم أتوقع هذا أبداً! 😳💥",
-    "أبدعت! هذه الحركة تستحق التصفيق! 👏🧠",
-    "مهلاً، كيف استطعت كشف هذه الثغرة لابتلاعي؟! 🤖📈",
-    "واو! رؤية تكتيكية ممتازة جداً! 👑🌟",
-  ]
-};
 
 export default function App() {
-  const [lang, setLang] = useState<Language>('KU');
+  const [lang, setLangInternal] = useState<Language>(() => {
+    const saved = localStorage.getItem('dama_lang');
+    if (saved === 'KU' || saved === 'EN' || saved === 'AR') {
+      return saved as Language;
+    }
+    return 'KU';
+  });
+
+  const setLang = (newLang: Language) => {
+    setLangInternal(newLang);
+    localStorage.setItem('dama_lang', newLang);
+  };
   const [screen, setScreen] = useState<ScreenType>('HOME');
   const [mode, setMode] = useState<GameMode>('AI');
   const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
@@ -142,6 +65,17 @@ export default function App() {
   const [showAcademy, setShowAcademy] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showProfiles, setShowProfiles] = useState(false);
+  const [showCampaign, setShowCampaign] = useState(false);
+  const [showCoach, setShowCoach] = useState(false);
+  const [showPlayStorePolicies, setShowPlayStorePolicies] = useState(false);
+  const [showDamaRules, setShowDamaRules] = useState(false);
+  const [showAboutUsPortfolio, setShowAboutUsPortfolio] = useState(false);
+  const [activeCampaignBoss, setActiveCampaignBoss] = useState<any>(null);
+
+  // Time-Attack variables
+  const [timeAttack, setTimeAttack] = useState(false);
+  const [timeAttackP1, setTimeAttackP1] = useState(180);
+  const [timeAttackP2, setTimeAttackP2] = useState(180);
 
   // Expanded menu settings items
   const [pieceStyle, setPieceStyle] = useState<string>('WHITE_BLACK');
@@ -149,7 +83,48 @@ export default function App() {
   const [bubbleText, setBubbleText] = useState<string | null>(null);
   const [bubbleSender, setBubbleSender] = useState<'CYAN' | 'WHITE' | null>(null);
   const [cacheClearToast, setCacheClearToast] = useState(false);
+  const [activeDhikr, setActiveDhikr] = useState<string | null>(null);
   const bubbleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Periodic elegant 1-second Arabic Dhikr notification
+  useEffect(() => {
+    const ARABIC_DHIKRS = [
+      "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ",
+      "أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ",
+      "لَا إِلَٰهَ إِلَّا اللَّهُ",
+      "اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ",
+      "سُبْحَانَ اللَّهِ الْعَظِيمِ",
+      "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
+      "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
+      "اللَّهُ أَكْبَرُ کَبِيرًا",
+      "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ",
+      "يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ",
+      "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ سُبْحَانَ اللَّهِ العَظِيمِ"
+    ];
+
+    // Trigger first dhikr after 12 seconds, then every 18 seconds
+    const initialDelay = setTimeout(() => {
+      const idx = Math.floor(Math.random() * ARABIC_DHIKRS.length);
+      setActiveDhikr(ARABIC_DHIKRS[idx]);
+      setTimeout(() => {
+        setActiveDhikr(null);
+      }, 1000);
+    }, 12000);
+
+    const interval = setInterval(() => {
+      const idx = Math.floor(Math.random() * ARABIC_DHIKRS.length);
+      setActiveDhikr(ARABIC_DHIKRS[idx]);
+      // Disappear exactly after 1 second (1000ms)
+      setTimeout(() => {
+        setActiveDhikr(null);
+      }, 1000);
+    }, 20000);
+
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleClearCacheAndRefresh = () => {
     // Keep tokens absolutely safe
@@ -214,6 +189,36 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (screen !== 'PLAYING' || !timeAttack || gameState.winner) return;
+
+    const timer = setInterval(() => {
+      if (gameState.turn === 'CYAN') {
+        setTimeAttackP1((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            dispatch({ type: 'HYDRATE_STATE', payload: { ...gameState, winner: 'WHITE' } });
+            playSound('error');
+            return 0;
+          }
+          return prev - 1;
+        });
+      } else {
+        setTimeAttackP2((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            dispatch({ type: 'HYDRATE_STATE', payload: { ...gameState, winner: 'CYAN' } });
+            playSound('win');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [screen, timeAttack, gameState.turn, gameState.winner, playSound, gameState]);
+
+  useEffect(() => {
     if (gameState.winner && !prevWinner.current) {
       if (soundEnabled) playSound('win');
       
@@ -228,92 +233,16 @@ export default function App() {
       }
 
       // Profiles Statistics Updating on Game Over (offline analytics)
-      const currentCyanCount = gameState.board.flat().filter(p => p && p.player === 'CYAN').length;
-      const currentWhiteCount = gameState.board.flat().filter(p => p && p.player === 'WHITE').length;
-      const cyanLost = Math.max(0, 16 - currentCyanCount);
-      const whiteLost = Math.max(0, 16 - currentWhiteCount);
-
-      const profiles = getProfiles();
-      
-      // Update Player 1 info
-      profiles.p1.gamesPlayed += 1;
-      profiles.p1.totalJumpsCaptured += whiteLost;
-      
-      const isP1Winner = gameState.winner === 'CYAN';
-      
-      if (isP1Winner) {
-        profiles.p1.totalWins += 1;
-        profiles.p1.currentWinStreak += 1;
-        if (profiles.p1.currentWinStreak > profiles.p1.longestWinStreak) {
-          profiles.p1.longestWinStreak = profiles.p1.currentWinStreak;
-        }
-        // Reward bonus coins on winning match
-        profiles.p1.coinCount += 15;
-      } else {
-        profiles.p1.totalLosses += 1;
-        profiles.p1.currentWinStreak = 0;
-      }
-
-      // Update Player 2 info if local Pass & Play PVP
-      if (mode === 'PVP') {
-        profiles.p2.gamesPlayed += 1;
-        profiles.p2.totalJumpsCaptured += cyanLost;
-        
-        const isP2Winner = gameState.winner === 'WHITE';
-        if (isP2Winner) {
-          profiles.p2.totalWins += 1;
-          profiles.p2.currentWinStreak += 1;
-          if (profiles.p2.currentWinStreak > profiles.p2.longestWinStreak) {
-            profiles.p2.longestWinStreak = profiles.p2.currentWinStreak;
-          }
-          profiles.p2.coinCount += 15;
-        } else {
-          profiles.p2.totalLosses += 1;
-          profiles.p2.currentWinStreak = 0;
-        }
-      }
-
-      saveProfiles(profiles.p1, profiles.p2);
-      
-      // Synchronize state back
-      setP1Profile(profiles.p1);
-      setP2Profile(profiles.p2);
-
-      // Trigger achievement check
-      checkAndUnlockAchievements('p1', {
-        won: isP1Winner,
-        difficulty: mode === 'AI' ? difficulty : undefined,
-        hintsLeftMax: 5,
-        hintsLeftEnd: gameState.hintsLeft,
-        playerPiecesRemaining: currentCyanCount,
-        opponentPiecesCaptured: whiteLost,
-        promotedKingsCount: gameState.board.flat().filter(p => p && p.player === 'CYAN' && p.type === 'KING').length
+      const latestProfiles = handleEndGameStatistics({
+        winner: gameState.winner as 'CYAN' | 'WHITE',
+        mode,
+        difficulty,
+        board: gameState.board,
+        activeCampaignBoss,
+        hintsLeft: gameState.hintsLeft
       });
-
-      if (mode === 'PVP') {
-        const isP2Winner = gameState.winner === 'WHITE';
-        checkAndUnlockAchievements('p2', {
-          won: isP2Winner,
-          hintsLeftMax: 5,
-          hintsLeftEnd: 5,
-          playerPiecesRemaining: currentWhiteCount,
-          opponentPiecesCaptured: cyanLost,
-          promotedKingsCount: gameState.board.flat().filter(p => p && p.player === 'WHITE' && p.type === 'KING').length
-        });
-      }
-
-      // Add to device Match History log list
-      addMatchHistory({
-        id: 'match_' + Date.now(),
-        date: new Date().toLocaleDateString(),
-        mode: mode,
-        difficulty: mode === 'AI' ? difficulty : undefined,
-        player1Name: profiles.p1.name,
-        player2Name: mode === 'AI' ? 'ژێری دەستکرد (مەکینە)' : profiles.p2.name,
-        winnerName: gameState.winner === 'CYAN' ? profiles.p1.name : (mode === 'AI' ? 'ژێری دەستکرد (مەکینە)' : profiles.p2.name),
-        piecesCaptured: gameState.winner === 'CYAN' ? whiteLost : cyanLost,
-        durationSeconds: 120
-      });
+      setP1Profile(latestProfiles.p1);
+      setP2Profile(latestProfiles.p2);
     } else if (gameState.board !== prevBoard.current) {
       // Detect captures & king actions
       const prevCyan = prevBoard.current?.flat().filter(p => p && p.player === 'CYAN').length ?? 16;
@@ -325,7 +254,12 @@ export default function App() {
       const botLoss = currentWhite < prevWhite;
 
       if (soundEnabled) {
-        if (userLoss || botLoss) {
+        const prevKings = prevBoard.current?.flat().filter(p => p && p.type === 'KING').length ?? 0;
+        const currentKings = gameState.board.flat().filter(p => p && p.type === 'KING').length;
+
+        if (currentKings > prevKings) {
+          playSound('king');
+        } else if (userLoss || botLoss) {
           playSound('capture');
         } else {
           playSound('move');
@@ -382,18 +316,20 @@ export default function App() {
 
   // Trigger AI via Worker
   useEffect(() => {
-    if (screen === 'PLAYING' && mode === 'AI' && gameState.turn === 'WHITE' && !gameState.winner) {
+    const isBotTurn = (mode === 'AI' || mode === 'CAMPAIGN') && gameState.turn === 'WHITE';
+    if (screen === 'PLAYING' && isBotTurn && !gameState.winner) {
+      const targetDifficulty = mode === 'CAMPAIGN' && activeCampaignBoss ? activeCampaignBoss.difficulty : difficulty;
       const timer = setTimeout(() => {
         workerRef.current?.postMessage({
           board: gameState.board,
-          difficulty,
+          difficulty: targetDifficulty,
           turn: 'WHITE',
           mustJumpPos: gameState.mustJumpPos
         });
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [screen, mode, difficulty, gameState.turn, gameState.winner, gameState.board]);
+  }, [screen, mode, difficulty, gameState.turn, gameState.winner, gameState.board, activeCampaignBoss]);
 
   // Handle mandatory capture warnings
   useEffect(() => {
@@ -447,13 +383,33 @@ export default function App() {
     dispatch({ type: 'RESET_GAME' });
     setScreen('PLAYING');
     setShowAiSetupModal(false);
+    setTimeAttackP1(180);
+    setTimeAttackP2(180);
+  };
+
+  const startCampaignChallenge = (boss: any) => {
+    setActiveCampaignBoss(boss);
+    setMode('CAMPAIGN');
+    const nameInLang = lang === 'KU' ? boss.nameKu : lang === 'AR' ? boss.nameAr : boss.nameEn;
+    setPlayer2Name(nameInLang);
+    dispatch({ type: 'RESET_GAME' });
+    setScreen('PLAYING');
+    setTimeAttackP1(180);
+    setTimeAttackP2(180);
+    setShowCampaign(false);
   };
 
   const handleStartAction = () => {
     if (cooldownRemaining > 0 || tokens <= 0) {
       return; // Locked out!
     }
-    if (mode === 'AI') {
+    if (mode === 'CAMPAIGN') {
+      if (!activeCampaignBoss) {
+        setShowCampaign(true);
+      } else {
+        startGame();
+      }
+    } else if (mode === 'AI') {
       setShowAiSetupModal(true);
     } else {
       startGame();
@@ -490,34 +446,129 @@ export default function App() {
   const [exitToast, setExitToast] = useState(false);
   const backPressTimeRef = useRef<number>(0);
 
+  // Initialize window history state on first-load to enable robust backtracking support
   useEffect(() => {
-    // Standard setup
-    window.history.replaceState({ screen: 'HOME' }, '');
+    if (!window.history.state) {
+      window.history.replaceState({
+        screen: 'HOME',
+        showPuzzles: false,
+        showAcademy: false,
+        showStats: false,
+        showProfiles: false,
+        showCampaign: false,
+        showCoach: false,
+        showPlayStorePolicies: false,
+        showDamaRules: false,
+        showAboutUsPortfolio: false
+      }, '');
+    }
+  }, []);
 
+  // Synchronise state transitions (panels and active screens) to custom browser history state
+  useEffect(() => {
+    const currentState = {
+      screen,
+      showPuzzles,
+      showAcademy,
+      showStats,
+      showProfiles,
+      showCampaign,
+      showCoach,
+      showPlayStorePolicies,
+      showDamaRules,
+      showAboutUsPortfolio
+    };
+
+    const hasActiveModal = 
+      showPuzzles || showAcademy || showStats || showProfiles || 
+      showCampaign || showCoach || showPlayStorePolicies || 
+      showDamaRules || showAboutUsPortfolio;
+
+    const currentHistoryState = window.history.state;
+
+    // Check if configuration matches to prevent duplicate histories
+    const matches = currentHistoryState &&
+      currentHistoryState.screen === screen &&
+      !!currentHistoryState.showPuzzles === !!showPuzzles &&
+      !!currentHistoryState.showAcademy === !!showAcademy &&
+      !!currentHistoryState.showStats === !!showStats &&
+      !!currentHistoryState.showProfiles === !!showProfiles &&
+      !!currentHistoryState.showCampaign === !!showCampaign &&
+      !!currentHistoryState.showCoach === !!showCoach &&
+      !!currentHistoryState.showPlayStorePolicies === !!showPlayStorePolicies &&
+      !!currentHistoryState.showDamaRules === !!showDamaRules &&
+      !!currentHistoryState.showAboutUsPortfolio === !!showAboutUsPortfolio;
+
+    if (!matches) {
+      window.history.pushState(currentState, '');
+    }
+  }, [
+    screen,
+    showPuzzles,
+    showAcademy,
+    showStats,
+    showProfiles,
+    showCampaign,
+    showCoach,
+    showPlayStorePolicies,
+    showDamaRules,
+    showAboutUsPortfolio
+  ]);
+
+  useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
-      const stateScreen = e.state?.screen as ScreenType | undefined;
-
-      if (screen !== 'HOME') {
-        // Dynamic back behavior: Any non-home page returns to home state
-        if (screen === 'PLAYING') {
+      if (e.state) {
+        const s = e.state;
+        
+        // Return with animations and penalty warnings if exiting game
+        if (screen === 'PLAYING' && s.screen !== 'PLAYING') {
           deductActivePenalty();
         }
-        setScreen('HOME');
-        // Restore home item in browser history
-        window.history.replaceState({ screen: 'HOME' }, '');
+
+        setScreen(s.screen || 'HOME');
+        setShowPuzzles(!!s.showPuzzles);
+        setShowAcademy(!!s.showAcademy);
+        setShowStats(!!s.showStats);
+        setShowProfiles(!!s.showProfiles);
+        setShowCampaign(!!s.showCampaign);
+        setShowCoach(!!s.showCoach);
+        setShowPlayStorePolicies(!!s.showPlayStorePolicies);
+        setShowDamaRules(!!s.showDamaRules);
+        setShowAboutUsPortfolio(!!s.showAboutUsPortfolio);
       } else {
-        // Back pressed while on HOME screen (exit prompt)
-        const now = Date.now();
-        if (now - backPressTimeRef.current < 2000) {
-          // Double press within 2s, allow browser default exit behaviour
-          setExitToast(false);
-          window.history.go(-1);
+        // Fallback default back sequence
+        const hasActiveModal = 
+          showPuzzles || showAcademy || showStats || showProfiles || 
+          showCampaign || showCoach || showPlayStorePolicies || 
+          showDamaRules || showAboutUsPortfolio;
+
+        if (hasActiveModal) {
+          setShowPuzzles(false);
+          setShowAcademy(false);
+          setShowStats(false);
+          setShowProfiles(false);
+          setShowCampaign(false);
+          setShowCoach(false);
+          setShowPlayStorePolicies(false);
+          setShowDamaRules(false);
+          setShowAboutUsPortfolio(false);
+        } else if (screen !== 'HOME') {
+          if (screen === 'PLAYING') {
+            deductActivePenalty();
+          }
+          setScreen('HOME');
         } else {
-          backPressTimeRef.current = now;
-          setExitToast(true);
-          setTimeout(() => setExitToast(false), 2000);
-          // Restore the history stack back-stop
-          window.history.pushState({ screen: 'HOME' }, '');
+          // Double press back on root home screen
+          const now = Date.now();
+          if (now - backPressTimeRef.current < 2000) {
+            setExitToast(false);
+            window.history.go(-1);
+          } else {
+            backPressTimeRef.current = now;
+            setExitToast(true);
+            setTimeout(() => setExitToast(false), 2000);
+            window.history.pushState({ screen: 'HOME' }, '');
+          }
         }
       }
     };
@@ -526,602 +577,114 @@ export default function App() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [screen, tokens, gameState.winner]);
-
-  // Sync state transitions to history stack manually
-  useEffect(() => {
-    if (window.history.state?.screen !== screen) {
-      window.history.pushState({ screen }, '');
-    }
-  }, [screen]);
-
-  const cyanCount = gameState.board.flat().filter(p => p && p.player === 'CYAN').length;
-  const whiteCount = gameState.board.flat().filter(p => p && p.player === 'WHITE').length;
-  const capturedByCyan = 16 - whiteCount;
-  const capturedByWhite = 16 - cyanCount;
-
+  }, [
+    screen, 
+    showPuzzles, 
+    showAcademy, 
+    showStats, 
+    showProfiles, 
+    showCampaign, 
+    showCoach, 
+    showPlayStorePolicies, 
+    showDamaRules, 
+    showAboutUsPortfolio,
+    tokens
+  ]);
+  const cyanCount = gameState.board.flat().filter((p: any) => p && p.player === 'CYAN').length;
+  const whiteCount = gameState.board.flat().filter((p: any) => p && p.player === 'WHITE').length;
   return (
-    <div dir={isRtl ? 'rtl' : 'ltr'} className="min-h-screen bg-[#020202] text-neutral-100 flex flex-col font-sans overflow-hidden selection:bg-amber-500/30 selection:text-amber-200 relative">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#140f07,#000000)] -z-20" />
+    <div dir={isRtl ? 'rtl' : 'ltr'} className="min-h-screen bg-[#010915] text-neutral-100 flex flex-col font-sans overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200 relative pt-[env(safe-area-inset-top,1.2rem)] pb-[env(safe-area-inset-bottom,1.5rem)] pl-[env(safe-area-inset-left,0.5rem)] pr-[env(safe-area-inset-right,0.5rem)]">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#0b213c,#01050e)] opacity-100 -z-20" />
       
       {/* Dynamic Animated Checkers Board Floating background */}
       <AnimatedBackground />
 
       {/* HEADER - Slim, optimized, responsive and professional */}
-      <header className="flex justify-between items-center py-2 px-3 sm:px-4 lg:px-6 border-b border-white/5 backdrop-blur-md relative z-30 bg-black/35 select-none shrink-0">
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Tokens counter */}
-          <div className="flex items-center space-x-1 space-x-reverse bg-amber-500/10 border border-amber-500/35 text-amber-300 px-2.5 py-1 rounded-xl text-xs sm:text-sm font-black shadow-[0_0_10px_rgba(245,158,11,0.15)]">
-            <Coins className="w-3.5 h-3.5 mr-1 rtl:ml-1 rtl:mr-0 text-amber-400" />
-            <span>{tokens}</span>
-          </div>
-
-          {/* If on HOME screen: Instant Flush Cache & Safe Refresh Button */}
-          {screen === 'HOME' && (
-            <button
-              onClick={handleClearCacheAndRefresh}
-              title={lang === 'KU' ? 'سڕینەوەی کاش و نوێکردنەوە' : lang === 'AR' ? 'مسح الكاش والتحديث' : 'Flush Cache & Safe Refresh'}
-              className="flex items-center space-x-1.5 space-x-reverse py-1 px-2.5 rounded-lg transition-all text-xs font-bold uppercase cursor-pointer bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 active:scale-95 shadow-md shadow-orange-950/20"
-            >
-              <RefreshCw className="w-3 h-3 text-orange-400 animate-[spin_6s_linear_infinite]" />
-              <span className="hidden xs:inline">
-                {lang === 'KU' ? 'سڕینەوەی کاش' : lang === 'AR' ? 'مسح الكاش' : 'Safe Reset'}
-              </span>
-            </button>
-          )}
-
-          {/* If on PLAYING screen: Home/Exit, Back/Undo, and Restart */}
-          {screen === 'PLAYING' && (
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              {/* Home/Exit button */}
-              <button
-                onClick={() => {
-                  deductActivePenalty();
-                  setScreen('HOME');
-                }}
-                className="flex items-center space-x-1 space-x-reverse py-1 table-cell px-2 sm:px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer"
-                title={lang === 'KU' ? 'هۆم' : lang === 'AR' ? 'الرئيسية' : 'Home'}
-              >
-                <HomeIcon className="w-3.5 h-3.5 text-rose-400" />
-                <span className="hidden xs:inline mr-1 rtl:ml-1">
-                  {lang === 'KU' ? 'هۆم' : lang === 'AR' ? 'الرئيسية' : 'Home'}
-                </span>
-              </button>
-
-              {/* Back / Undo button */}
-              <button
-                onClick={() => dispatch({ type: 'UNDO_MOVE' })}
-                className="flex items-center space-x-1 space-x-reverse py-1 px-2 sm:px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer"
-                title={lang === 'KU' ? 'گەڕانەوە' : lang === 'AR' ? 'تراجع' : 'Undo'}
-              >
-                <ChevronLeft className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden xs:inline mr-1 rtl:ml-1">
-                  {lang === 'KU' ? 'گەڕانەوە' : lang === 'AR' ? 'تراجع' : 'Back'}
-                </span>
-              </button>
-
-              {/* Restart button */}
-              <button
-                onClick={handleFullReset}
-                className="flex items-center space-x-1 space-x-reverse py-1 px-2 sm:px-3 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 text-cyan-300 text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer mr-1 rtl:mr-0 rtl:ml-1"
-                title={lang === 'KU' ? 'دوبارەکردنەوەی یاری' : lang === 'AR' ? 'إعادة اللعب' : 'Restart'}
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden xs:inline mr-1 rtl:ml-1">
-                  {lang === 'KU' ? 'دوبارە' : lang === 'AR' ? 'إعادة' : 'Restart'}
-                </span>
-              </button>
-
-              {/* Hint button for AI gameplay */}
-              {mode === 'AI' && (
-                <button
-                  onClick={requestHint}
-                  disabled={gameState.hintsLeft <= 0 || gameState.turn !== 'CYAN' || !!gameState.winner}
-                  className={`flex items-center space-x-1.5 space-x-reverse py-1 px-2 sm:px-3 rounded-lg text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer ${
-                    gameState.hintsLeft > 0 && gameState.turn === 'CYAN' && !gameState.winner
-                      ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-350 border border-amber-500/20 shadow-md shadow-amber-950/20'
-                      : 'bg-neutral-800/40 border border-white/5 text-neutral-500 cursor-not-allowed opacity-40'
-                  }`}
-                  title={lang === 'KU' ? 'ڕێنمایی' : lang === 'AR' ? 'تلميح' : 'Hint'}
-                >
-                  <Lightbulb className={`w-3.5 h-3.5 ${gameState.hintsLeft > 0 && gameState.turn === 'CYAN' && !gameState.winner ? 'text-amber-400 animate-pulse' : 'text-neutral-500'}`} />
-                  <span className="hidden sm:inline mr-1 rtl:ml-1">
-                    {lang === 'KU' ? `ڕێنمایی (${gameState.hintsLeft})` : lang === 'AR' ? `تلميح (${gameState.hintsLeft})` : `Hint (${gameState.hintsLeft})`}
-                  </span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors cursor-pointer"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4 text-neutral-500" />}
-          </button>
-          
-          {/* Language selection toolbar */}
-          <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
-            <button onClick={() => setLang('KU')} className={`px-2 py-1 text-[10px] font-black rounded-md transition cursor-pointer ${lang === 'KU' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/20 shadow-sm' : 'text-neutral-400 hover:text-white'}`}>KU</button>
-            <button onClick={() => setLang('EN')} className={`px-2 py-1 text-[10px] font-black rounded-md transition cursor-pointer ${lang === 'EN' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/20 shadow-sm' : 'text-neutral-400 hover:text-white'}`}>EN</button>
-            <button onClick={() => setLang('AR')} className={`px-2 py-1 text-[10px] font-black rounded-md transition cursor-pointer ${lang === 'AR' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/20 shadow-sm' : 'text-neutral-400 hover:text-white'}`}>AR</button>
-          </div>
-        </div>
-      </header>
+      <GameHeader
+        lang={lang}
+        setLang={setLang}
+        screen={screen}
+        setScreen={setScreen}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={setSoundEnabled}
+        tokens={tokens}
+        handleClearCacheAndRefresh={handleClearCacheAndRefresh}
+        deductActivePenalty={deductActivePenalty}
+        dispatch={dispatch}
+        handleFullReset={handleFullReset}
+      />
 
       <main className="flex-1 w-full flex flex-col items-center p-4 sm:p-6 md:p-8 relative z-10 overflow-y-auto min-h-0">
         <AnimatePresence mode="wait">
           {screen === 'HOME' && (
-            <motion.div
-              key="home"
-              initial={{ opacity: 0, scale: 0.95, y: 11 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -11 }}
-              className="w-full max-w-lg my-auto bg-[#050508]/98 border-2 border-amber-500/20 shadow-[0_25px_60px_rgba(242,158,11,0.15)] rounded-3xl p-6 sm:p-8 relative z-10 backdrop-blur-2xl animate-fade-in overflow-hidden"
-              style={{
-                backgroundImage: 'radial-gradient(circle at top left, rgba(245, 158, 11, 0.06), transparent)',
-              }}
-            >
-              <div className="space-y-6">
-                {/* Visual Header with glowing badge */}
-                <div className="text-center relative py-1 pb-1">
-                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-40 h-10 bg-gradient-to-r from-amber-500/10 via-yellow-600/10 to-orange-500/10 blur-xl rounded-full" />
-                  <span className="text-xs font-black tracking-widest text-[#fbbf24] select-none uppercase bg-white/5 px-4 py-1.5 border border-amber-500/20 rounded-full shadow-inner">
-                    Dama / دامە
-                  </span>
-                </div>
-
-                {/* Visual Player 1 Profile Card & Feature Center Dashboard */}
-                <div className="bg-slate-950/70 p-4 rounded-2xl border border-amber-500/15 relative overflow-hidden flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <AvatarRenderer 
-                      avatarId={p1Profile.avatarId} 
-                      frameId={p1Profile.selectedFrameId} 
-                      className="w-12 h-12"
-                    />
-                    <div className="flex-1 text-left space-y-0.5">
-                      <div className="flex items-center gap-1.5 justify-between">
-                        <span className="text-xs font-black text-white">{p1Profile.name}</span>
-                        {p1Profile.selectedTitleId && (
-                          <span className="text-[8.5px] bg-[#fbbf24]/10 text-[#fbbf24] px-1.5 py-0.5 rounded border border-[#fbbf24]/10 font-black uppercase tracking-wider scale-95">
-                            {TITLES.find(t => t.id === p1Profile.selectedTitleId)?.nameKu}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex gap-3 text-[10px] text-neutral-400 font-bold">
-                        <span>🏆 {p1Profile.totalWins} {lang === 'KU' ? 'بردنەوە' : 'wins'}</span>
-                        <span className="text-orange-500 font-extrabold flex items-center gap-0.5">🔥 {p1Profile.currentWinStreak} {lang === 'KU' ? 'سەرکەوتن' : 'streak'}</span>
-                        <span className="text-[#fbbf24] font-black flex items-center gap-0.5">🪙 {p1Profile.coinCount}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4 Multi-Feature Micro Utilities Bar */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-white/5">
-                    <button
-                      onClick={() => setShowProfiles(true)}
-                      className="py-2 px-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-xl border border-white/5 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer hover:border-cyan-500/30"
-                    >
-                      <span className="text-xs">👤</span>
-                      <span>{lang === 'KU' ? 'پڕۆفایل' : lang === 'AR' ? 'الملف' : 'Profile'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowStats(true)}
-                      className="py-2 px-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-xl border border-white/5 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer hover:border-amber-500/30"
-                    >
-                      <span className="text-xs">📊</span>
-                      <span>{lang === 'KU' ? 'ئامارەکان' : lang === 'AR' ? 'التحليلات' : 'Analytics'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowPuzzles(true)}
-                      className="py-2 px-1 bg-amber-500/5 hover:bg-amber-500/15 text-amber-300 hover:text-amber-200 rounded-xl border border-amber-500/20 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer"
-                    >
-                      <span className="text-xs">🧩</span>
-                      <span>{lang === 'KU' ? 'مەتەڵەکان' : lang === 'AR' ? 'الألغاز' : 'Puzzles'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowAcademy(true)}
-                      className="py-2 px-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-xl border border-white/5 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer hover:border-emerald-500/30"
-                    >
-                      <span className="text-xs">🎓</span>
-                      <span>{lang === 'KU' ? 'ئەکادیمیا' : lang === 'AR' ? 'التعليم' : 'Academy'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mode Selection */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest mb-3 block text-center">
-                    {lang === 'KU' ? 'هەڵبژاردنی مۆدی یاری • دەستپێکردن' : lang === 'AR' ? 'اختر نمط اللعب' : 'Select Game Mode'}
-                  </label>
-                  <div className="flex flex-col gap-3 w-full font-sans">
-                    {/* Mode 1: AI (Robot) */}
-                    <button
-                      onClick={() => setMode('AI')}
-                      className={`w-full relative flex items-center justify-center py-[13px] px-[21px] rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden group select-none ${
-                        mode === 'AI' 
-                          ? 'bg-gradient-to-l from-black via-[#0d0a06] to-[#1a1309] border-amber-500 shadow-[0_6px_25px_rgba(245,158,11,0.22)] scale-[1.02]' 
-                          : 'bg-white/5 border-white/5 text-neutral-400 hover:bg-white/10 hover:border-white/10'
-                      }`}
-                    >
-                      {/* Left Side: Mode Explainer (centered) */}
-                      <div className="flex flex-col items-center text-center">
-                        <span className={`text-[9px] uppercase tracking-wider font-extrabold ${mode === 'AI' ? 'text-amber-400 font-black' : 'text-neutral-500'}`}>
-                          {lang === 'KU' ? 'سیستەمی زیرەک' : lang === 'AR' ? 'الذكاء الاصطناعي' : 'CYBER AI'}
-                        </span>
-                        <span className={`block text-base font-black mt-0.5 ${mode === 'AI' ? 'text-[#fefefe]' : 'text-neutral-300'}`}>
-                          {lang === 'KU' ? 'یاری لەگەڵ ژیری دەستکرد' : lang === 'AR' ? 'یاری لەگەڵ ژیری دەستکرد' : t.PLAY_AI}
-                        </span>
-                      </div>
-
-                      {/* Right Side: Sleek Robot Icon/Avatar at the far right */}
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center shrink-0">
-                        {mode === 'AI' ? (
-                          <div className="w-9 h-9 rounded-xl overflow-hidden border border-amber-500/40 shadow-md">
-                            <RobotAvatar />
-                          </div>
-                        ) : (
-                          <div className="w-9 h-9 bg-neutral-800 rounded-xl flex items-center justify-center border border-white/10 group-hover:bg-neutral-700 transition-all">
-                            <Bot className="w-5 h-5 text-neutral-400 group-hover:text-amber-400 transition-colors" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Mode 2: Friend (Traditional Human Player) */}
-                    <button
-                      onClick={() => setMode('FRIEND')}
-                      className={`w-full relative flex items-center justify-center py-[13px] px-[21px] rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden group select-none ${
-                        mode === 'FRIEND' 
-                          ? 'bg-gradient-to-l from-black via-[#0d0a06] to-[#1a1309] border-amber-500 shadow-[0_6px_25px_rgba(245,158,11,0.22)] scale-[1.02]' 
-                          : 'bg-white/5 border-white/5 text-neutral-400 hover:bg-white/10 hover:border-white/10'
-                      }`}
-                    >
-                      {/* Left Side: Mode Explainer (centered) */}
-                      <div className="flex flex-col items-center text-center">
-                        <span className={`text-[9px] uppercase tracking-wider font-extrabold ${mode === 'FRIEND' ? 'text-amber-400 font-black' : 'text-neutral-500'}`}>
-                          {lang === 'KU' ? 'هاوڕێی ئۆفلاین' : lang === 'AR' ? 'صديق أوفلاين' : 'LOCAL DUEL'}
-                        </span>
-                        <span className={`block text-base font-black mt-0.5 ${mode === 'FRIEND' ? 'text-[#fefefe]' : 'text-neutral-300'}`}>
-                          {lang === 'KU' ? 'یاری لەگەڵ هاوڕێ' : lang === 'AR' ? 'یاری لەگەڵ هاوڕێ' : t.PLAY_FRIEND}
-                        </span>
-                      </div>
-
-                      {/* Right Side: Sleek Kurdish Man Icon/Avatar at the far right */}
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center shrink-0">
-                        {mode === 'FRIEND' ? (
-                          <div className="w-9 h-9 rounded-xl overflow-hidden border border-amber-550/40 shadow-md">
-                            <KurdishManAvatar />
-                          </div>
-                        ) : (
-                          <div className="w-9 h-9 bg-neutral-800 rounded-xl flex items-center justify-center border border-white/10 group-hover:bg-neutral-700 transition-all">
-                            <Users className="w-5 h-5 text-neutral-400 group-hover:text-amber-400 transition-colors" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                 {/* BOARD THEMES - 3 Choices directly inside home dashboard */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-[#fbbf24] uppercase tracking-widest mb-3 block text-center">
-                    {t.BOARD_THEME} • دیزاینی تەختەی یاری
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {BOARD_THEMES_3.map((themItem) => {
-                      const isSelected = theme === themItem.id;
-                      let bgGradClass = '';
-                      if (isSelected) {
-                        if (themItem.id === 'CLASSIC_WOOD') bgGradClass = 'bg-gradient-to-br from-amber-700 to-amber-950 border-amber-500 text-amber-100 shadow-[0_4px_15px_rgba(180,83,9,0.45)]';
-                        else if (themItem.id === 'ROYAL_GOLD') bgGradClass = 'bg-gradient-to-br from-amber-500 to-yellow-600 border-yellow-400 text-black shadow-[0_4px_15px_rgba(245,158,11,0.45)]';
-                        else if (themItem.id === 'DARK_MARBLE') bgGradClass = 'bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950 border-slate-500 text-white shadow-[0_4px_15px_rgba(71,85,105,0.45)]';
-                      } else {
-                        bgGradClass = 'bg-white/5 border-transparent text-neutral-400 hover:bg-white/10';
-                      }
-                      return (
-                        <button
-                          key={themItem.id}
-                          onClick={() => setTheme(themItem.id)}
-                          className={`p-3 rounded-2xl border text-xs flex flex-col items-center justify-center transition-all duration-300 cursor-pointer ${bgGradClass} ${isSelected ? 'scale-103 font-black' : 'font-bold'}`}
-                        >
-                          <span className="text-[11px] truncate text-center leading-tight">
-                            {lang === 'KU' ? themItem.nameKu : lang === 'AR' ? themItem.nameAr : themItem.nameEn}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* PIECE DESIGNS - 3 Contrast matchups setup directly inside home dashboard */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-[#fbbf24] uppercase tracking-widest mb-3 block text-center">
-                    Piece Styling • جۆری بەردەکان
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
-                    {PIECE_MATCHUPS_3.map((pStyle) => {
-                      const isSelected = pieceStyle === pStyle.id;
-                      let activeClass = '';
-                      if (isSelected) {
-                        if (pStyle.id === 'WHITE_BLACK') activeClass = 'bg-gradient-to-br from-amber-500/20 to-black text-amber-300 border-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.25)]';
-                        else if (pStyle.id === 'GOLD_BLACK') activeClass = 'bg-gradient-to-br from-amber-500/20 to-[#0e0c06] text-yellow-300 border-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.25)]';
-                        else activeClass = 'bg-gradient-to-br from-amber-500/20 to-[#100c06] text-amber-300 border-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.25)]';
-                      } else {
-                        activeClass = 'bg-white/5 border-transparent hover:bg-white/10 text-neutral-400';
-                      }
-                      return (
-                        <button
-                          key={pStyle.id}
-                          onClick={() => setPieceStyle(pStyle.id)}
-                          className={`p-2.5 rounded-xl border text-xs transition-all duration-300 flex flex-col justify-center items-center text-center cursor-pointer ${activeClass} ${isSelected ? 'scale-102 font-black border-amber-500' : 'font-semibold'}`}
-                        >
-                          <span className="leading-tight text-[10px]">
-                            {lang === 'KU' ? pStyle.nameKu : lang === 'AR' ? pStyle.nameAr : pStyle.nameEn}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Primary Launch Action button - formatted on Golden Ratio height & padding */}
-                <div className="pt-2">
-                  {cooldownRemaining > 0 ? (
-                    <div className="space-y-3">
-                      <button
-                        disabled
-                        className="relative w-full h-14 overflow-hidden rounded-2xl bg-neutral-900 border border-red-500/30 text-red-400 font-extrabold text-sm flex items-center justify-center gap-2 font-sans opacity-85 select-none"
-                      >
-                        <AlertCircle className="w-5 h-5 text-red-500 animate-pulse" />
-                        <span className="tracking-wide text-[12px] sm:text-xs">
-                          {getCooldownString()}
-                        </span>
-                      </button>
-                      <p className="text-[11px] sm:text-xs text-center text-neutral-400 font-bold leading-relaxed max-w-xs mx-auto">
-                        {lang === 'KU' 
-                          ? 'کۆینەکانت بووە بە ٠! نابێت یاری بکەیت تا ١ سەعات تێنەپەڕێت؛ دواتر خۆکارانە دەبێتەوە بە ٤٠ کۆین بۆ ئەوەی بتوانیت یاری بکەیتەوە.' 
-                          : lang === 'AR' 
-                          ? 'لقد نفدت الكوينات! لا يمكنك اللعب حتى مرور ساعة واحدة؛ وبعدها ستحصل تلقائياً على 40 كوين لمواصلة اللعب.' 
-                          : 'Your coins are 0! You cannot play until 1 hour has passed; then they will automatically restore to 40 coins.'}
-                      </p>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleStartAction}
-                      className="relative w-full h-14 overflow-hidden rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-[#d97706] text-black font-black text-base shadow-[0_0_35px_rgba(245,158,11,0.45)] border border-yellow-250/50 transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_45px_rgba(245,158,11,0.7)] hover:brightness-110 active:scale-[0.97] cursor-pointer flex items-center justify-center gap-3 font-sans group animate-pulse-slow"
-                    >
-                      <span className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out" />
-                      <Play className="w-6 h-6 fill-current text-[#050508]" />
-                      <span className="tracking-wide text-[15px] sm:text-base">{t.START} • دەستپێکردنی دامە</span>
-                    </button>
-                  )}
-                </div>
-
-                <button 
-                  onClick={() => setScreen('RULES')}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-[21px] rounded-xl border border-amber-500/15 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/30 text-amber-400 text-xs font-black transition-all duration-300 cursor-pointer shadow-md"
-                >
-                  <span className="text-sm">📜</span>
-                  <span>{t.RULES_TITLE} • ڕێسا و یاساکانی یاریەکە</span>
-                </button>
-              </div>
-            </motion.div>
+            <HomeView
+              lang={lang}
+              setLang={setLang}
+              screen={screen}
+              setScreen={setScreen}
+              mode={mode}
+              setMode={setMode}
+              theme={theme}
+              setTheme={setTheme}
+              pieceStyle={pieceStyle}
+              setPieceStyle={setPieceStyle}
+              timeAttack={timeAttack}
+              setTimeAttack={setTimeAttack}
+              tokens={tokens}
+              cooldownRemaining={cooldownRemaining}
+              activeCampaignBoss={activeCampaignBoss}
+              setShowCampaign={setShowCampaign}
+              setShowStats={setShowStats}
+              setShowProfiles={setShowProfiles}
+              setShowCoach={setShowCoach}
+              setShowPuzzles={setShowPuzzles}
+              setShowAcademy={setShowAcademy}
+              setShowPlayStorePolicies={setShowPlayStorePolicies}
+              setShowDamaRules={setShowDamaRules}
+              setShowAboutUsPortfolio={setShowAboutUsPortfolio}
+              p1Profile={p1Profile}
+              getCooldownString={getCooldownString}
+              handleStartAction={handleStartAction}
+              t={t}
+            />
           )}
 
           {screen === 'PLAYING' && (
-             <motion.div
-               key="playing"
-               initial={{ opacity: 0, scale: 0.95 }}
-               animate={{ opacity: 1, scale: 1 }}
-               exit={{ opacity: 0, scale: 0.95 }}
-               className="w-full max-w-3xl py-2 md:py-4 flex flex-col items-center"
-             >
-                {/* OPPONENT AREA (ABOVE THE BOARD) */}
-                <div className="w-full max-w-xl bg-black/40 border border-white/5 backdrop-blur-md rounded-2xl p-3 sm:p-4 mb-4 flex items-center justify-between relative shadow-lg">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    {/* Bot Avatar or Friend Avatar */}
-                    {mode === 'AI' ? (
-                      <RobotAvatar />
-                    ) : (
-                      <KurdishManAvatar />
-                    )}
-                    
-                    <div>
-                      <div className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest leading-none mb-1">
-                        {lang === 'KU' ? 'یاریزانی دژبەر' : lang === 'AR' ? 'اللاعب المنافس' : 'Opponent'}
-                      </div>
-                      {mode === 'FRIEND' ? (
-                        <input
-                          type="text"
-                          value={player2Name}
-                          onChange={(e) => setPlayer2Name(e.target.value)}
-                          placeholder={t.FRIEND}
-                          className="w-24 sm:w-32 bg-white/5 hover:bg-white/10 text-white text-xs sm:text-sm font-black px-2 py-0.5 rounded border border-white/10 focus:border-cyan-400 outline-none transition-all text-center"
-                        />
-                      ) : (
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
-                          <div className="text-xs sm:text-sm font-black text-white">
-                            {player2Name.trim() || t.AI_NAME}
-                          </div>
-                          
-                          {/* Beautiful Interactive Choice Select for Difficulty inside the active game */}
-                          <div className="flex items-center">
-                            <select
-                              value={difficulty}
-                              onChange={(e) => setDifficulty(e.target.value as any)}
-                              className={`text-[10px] sm:text-xs font-black px-2 py-0.5 rounded border outline-none cursor-pointer transition-all ${
-                                difficulty === 'EASY' ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400' :
-                                difficulty === 'MEDIUM' ? 'bg-amber-950/40 border-amber-500/30 text-amber-400' :
-                                difficulty === 'HARD' ? 'bg-orange-950/40 border-orange-500/30 text-orange-400' :
-                                'bg-red-950/40 border-red-500/30 text-rose-300'
-                              }`}
-                            >
-                              <option value="EASY" className="bg-slate-950 text-emerald-400 font-bold">{t.EASY}</option>
-                              <option value="MEDIUM" className="bg-slate-950 text-amber-500 font-bold">{t.MEDIUM}</option>
-                              <option value="HARD" className="bg-slate-950 text-orange-400 font-bold">{t.HARD}</option>
-                              <option value="EXPERT" className="bg-slate-950 text-red-400 font-bold">{t.EXPERT}</option>
-                            </select>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Count of pieces next to them (Like backend layout design) */}
-                      <div className="flex items-center gap-2.5 mt-1.5 text-xs font-bold">
-                        <span className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full select-none text-[10px]">
-                          ● {lang === 'KU' ? 'چالاک' : lang === 'AR' ? 'نشط' : 'Active'}: {whiteCount}
-                        </span>
-                        <span className="flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full select-none text-[10px]">
-                          {lang === 'KU' ? 'خوراو' : lang === 'AR' ? 'المأكول' : 'Captured'}: {16 - cyanCount}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Turn indicator glow */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${gameState.turn === 'WHITE' ? 'bg-amber-400 shadow-[0_0_12px_#fbbf24] animate-ping' : 'bg-neutral-800'}`} />
-                    <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">
-                      {gameState.turn === 'WHITE' ? 'TURN' : 'WAIT'}
-                    </span>
-                  </div>
-
-                  {/* Speech Bubble comments floating */}
-                  {bubbleText && bubbleSender === 'WHITE' && (
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0, y: 15 }}
-                      animate={{ scale: 1, opacity: 1, y: 0 }}
-                      className="absolute bottom-full mb-3 left-4 sm:left-12 bg-gradient-to-br from-indigo-950/95 via-purple-950/95 to-slate-900 border border-indigo-400/30 text-indigo-100 text-[11px] font-bold py-2.5 px-4 rounded-2xl shadow-[0_4px_25px_rgba(0,0,0,0.6)] max-w-[260px] z-30"
-                    >
-                      {bubbleText}
-                      <div className="absolute top-full left-6 border-[6px] border-transparent border-t-indigo-900/95" />
-                    </motion.div>
-                  )}
-                </div>
-
-                {/* Mandatory capture reminder banner */}
-                {gameState.mustJumpPos && !gameState.winner && (
-                   <div className="w-full max-w-xl text-[10px] sm:text-xs text-amber-400 bg-amber-400/10 px-4 py-2 rounded-xl font-bold flex items-center justify-center border border-amber-400/20 mb-3 animate-pulse">
-                     <AlertCircle className="w-4 h-4 rtl:ml-2 ltr:mr-2 shrink-0 text-amber-500" /> 
-                     <span>{t.MANDATORY}</span>
-                   </div>
-                )}
-
-                {/* BOARD CONTAINER WITH SHAKE ANIMATION */}
-                <motion.div 
-                  animate={shakeBoard ? {
-                    x: [0, -5, 5, -5, 5, -3, 3, 0],
-                    y: [0, 0, 0, 0, 0, 0, 0, 0]
-                  } : {}}
-                  transition={{ duration: 0.5, ease: 'easeInOut' }}
-                  className="w-full flex justify-center py-2 relative z-10"
-                >
-                  <Board
-                    gameState={gameState}
-                    dispatch={dispatch}
-                    theme={theme}
-                    lang={lang}
-                    disabled={gameState.winner !== null || (mode === 'AI' && gameState.turn === 'WHITE')}
-                    onGoHome={() => {
-                      deductActivePenalty();
-                      setScreen('HOME');
-                    }}
-                    onRestart={handleFullReset}
-                    p1Name={player1Name.trim() || t.YOU}
-                    p2Name={player2Name.trim() || (mode === 'AI' ? t.AI_NAME : t.FRIEND)}
-                    coachHintSource={gameState.hintPos}
-                    pieceStyle={pieceStyle}
-                  />
-                </motion.div>
-
-                {/* HUMAN AREA (BELOW THE BOARD) */}
-                <div className="w-full max-w-xl bg-black/40 border border-white/5 backdrop-blur-md rounded-2xl p-3 sm:p-4 mt-4 flex items-center justify-between relative shadow-lg">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    {/* Kurdish Man Avatar representing You */}
-                    <KurdishManAvatar />
-                    
-                    <div>
-                      <div className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest leading-none mb-1">
-                        {lang === 'KU' ? 'ناوی تۆ • Your Name' : lang === 'AR' ? 'اسمك الكريم' : 'Your Name'}
-                      </div>
-                      <input
-                        type="text"
-                        value={player1Name}
-                        onChange={(e) => setPlayer1Name(e.target.value)}
-                        placeholder={t.YOU}
-                        className="w-24 sm:w-32 bg-cyan-950/20 hover:bg-cyan-950/30 text-cyan-400 text-xs sm:text-sm font-black px-2 py-0.5 rounded border border-cyan-500/20 focus:border-cyan-400 outline-none transition-all text-center"
-                      />
-                      
-                      {/* Count of pieces next to them (Like backend layout design) */}
-                      <div className="flex items-center gap-2.5 mt-1.5 text-xs font-bold">
-                        <span className="flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full select-none text-[10px]">
-                          ● {lang === 'KU' ? 'چالاک' : lang === 'AR' ? 'نشط' : 'Active'}: {cyanCount}
-                        </span>
-                        <span className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full select-none text-[10px]">
-                          {lang === 'KU' ? 'خوراو' : lang === 'AR' ? 'المأكول' : 'Captured'}: {16 - whiteCount}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Turn indicator glow */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${gameState.turn === 'CYAN' ? 'bg-cyan-400 shadow-[0_0_12px_#06b6d4] animate-ping' : 'bg-neutral-800'}`} />
-                    <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">
-                      {gameState.turn === 'CYAN' ? 'TURN' : 'WAIT'}
-                    </span>
-                  </div>
-                </div>
-             </motion.div>
+            <PlayingView
+              lang={lang}
+              mode={mode}
+              theme={theme}
+              difficulty={difficulty}
+              setDifficulty={setDifficulty}
+              player1Name={player1Name}
+              setPlayer1Name={setPlayer1Name}
+              player2Name={player2Name}
+              setPlayer2Name={setPlayer2Name}
+              gameState={gameState}
+              dispatch={dispatch}
+              timeAttack={timeAttack}
+              timeAttackP1={timeAttackP1}
+              timeAttackP2={timeAttackP2}
+              whiteCount={whiteCount}
+              cyanCount={cyanCount}
+              shakeBoard={shakeBoard}
+              bubbleText={bubbleText}
+              bubbleSender={bubbleSender}
+              pieceStyle={pieceStyle}
+              requestHint={requestHint}
+              deductActivePenalty={deductActivePenalty}
+              setScreen={setScreen}
+              handleFullReset={handleFullReset}
+              t={t}
+            />
           )}
 
           {screen === 'RULES' && (
-            <motion.div
-              key="rules"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-2xl bg-neutral-900 border border-white/5 p-6 md:p-8 rounded-3xl relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -translate-y-10 translate-x-10" />
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl translate-y-10 -translate-x-10" />
-
-              <button 
-                onClick={() => setScreen('HOME')}
-                className="flex items-center space-x-2 space-x-reverse text-neutral-300 hover:text-white mb-6 py-2 px-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer text-xs font-black shadow-inner"
-              >
-                <ChevronLeft className="w-4 h-4 rtl:scale-x-[-1] text-cyan-400" />
-                <span>{lang === 'KU' ? 'گەڕانەوە' : lang === 'AR' ? 'عودة' : 'Back'}</span>
-              </button>
-              
-              <div className="relative mb-6">
-                <h2 className="text-2.5xl font-black text-white bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent pb-1.5 border-b border-white/5 tracking-wide">
-                  {t.RULES_TITLE}
-                </h2>
-                <div className="h-[2px] w-20 bg-gradient-to-r from-cyan-400 to-indigo-500 absolute bottom-0 left-0" />
-              </div>
-              
-              <div className="mb-10">
-                <MarkdownParser markdown={t.RULES_CONTENT} />
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-white/10 relative">
-                <div className="relative mb-6">
-                  <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-450 to-orange-500 pb-1.5 border-b border-white/5 tracking-wide">
-                    {(t as any).PLAYSTORE_RULES_TITLE}
-                  </h2>
-                  <div className="h-[2px] w-20 bg-gradient-to-r from-amber-400 to-orange-500 absolute bottom-0 left-0" />
-                </div>
-                
-                <MarkdownParser markdown={(t as any).PLAYSTORE_RULES_CONTENT} />
-              </div>
-            </motion.div>
+            <RulesView
+              lang={lang}
+              setScreen={setScreen}
+              t={t}
+            />
           )}
         </AnimatePresence>
       </main>
@@ -1149,102 +712,17 @@ export default function App() {
 
       {/* AI Setup Popup Modal */}
       <AnimatePresence>
-        {showAiSetupModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[120] p-4 pointer-events-auto"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 30, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: 30, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 26 }}
-              className="bg-gradient-to-br from-slate-900 via-neutral-950 to-slate-900 border-2 border-amber-500/50 p-6 sm:p-8 rounded-3xl text-center shadow-[0_0_60px_rgba(245,158,11,0.5)] max-w-sm w-full relative overflow-hidden"
-            >
-              {/* Decorative glows */}
-              <div className="absolute top-0 left-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -translate-x-10 -translate-y-10" />
-              <div className="absolute bottom-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl translate-x-10 translate-y-10" />
-
-              {/* Icon Badge */}
-              <div className="w-14 h-14 mx-auto bg-gradient-to-br from-amber-400 via-yellow-450 to-amber-600 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.4)] border border-yellow-200 mb-4">
-                <Bot className="w-8 h-8 text-black" />
-              </div>
-
-              <h2 className="text-lg sm:text-xl font-black text-white leading-snug mb-1">
-                {lang === 'KU' ? 'ڕێکخستنی یاری ژیری دەستکرد' : lang === 'AR' ? 'تجهيز مباراة الذكاء الاصطناعي' : 'AI Match Setup'}
-              </h2>
-              <p className="text-[11px] sm:text-xs text-neutral-400 font-bold mb-6">
-                {lang === 'KU' ? 'ناوی خۆت و ئاستی زیرەکی دیاریبکە' : lang === 'AR' ? 'يرجى إدخال اسمك واختيار مستوى الصعوبة' : 'Enter details to launch your AI challenge'}
-              </p>
-
-              {/* Form Body */}
-              <div className="space-y-5 text-left font-sans">
-                {/* 1. Name Input */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-[#fbbf24] uppercase tracking-widest mb-2 block text-center">
-                    {lang === 'KU' ? 'ناوی تۆ • Your Name' : lang === 'AR' ? 'اسم اللاعب' : 'Your Name'}
-                  </label>
-                  <input
-                    type="text"
-                    value={player1Name}
-                    onChange={(e) => setPlayer1Name(e.target.value)}
-                    placeholder={t.YOU}
-                    className="w-full bg-cyan-950/20 hover:bg-cyan-950/30 text-white text-sm font-black px-4 py-3 rounded-xl border border-amber-500/20 focus:border-amber-400 outline-none transition-all text-center placeholder-neutral-500"
-                  />
-                </div>
-
-                {/* 2. Difficulty Selection */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-[#fbbf24] uppercase tracking-widest mb-2 block text-center">
-                    {lang === 'KU' ? 'دیاریکردنی ئاستی زیرەکی • AI Level' : lang === 'AR' ? 'درجة الصعوبة' : 'Difficulty Level'}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'EASY', nameKu: 'ئاسان (Easy)', nameAr: 'سهل', nameEn: 'Easy', border: 'border-emerald-500/30 text-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/30', active: 'border-emerald-500 bg-emerald-500 text-black shadow-[0_2px_10px_rgba(16,185,129,0.3)]' },
-                      { id: 'MEDIUM', nameKu: 'مامناوەند (Medium)', nameAr: 'متوسط', nameEn: 'Medium', border: 'border-amber-500/30 text-amber-400 bg-amber-950/20 hover:bg-amber-950/30', active: 'border-amber-500 bg-amber-500 text-black shadow-[0_2px_10px_rgba(245,158,11,0.3)]' },
-                      { id: 'HARD', nameKu: 'سەخت (Hard)', nameAr: 'صعب', nameEn: 'Hard', border: 'border-orange-500/30 text-orange-400 bg-orange-950/20 hover:bg-orange-950/30', active: 'border-orange-500 bg-orange-500 text-black shadow-[0_2px_10px_rgba(249,115,22,0.3)]' },
-                      { id: 'EXPERT', nameKu: 'زۆرزان (Expert)', nameAr: 'خبير', nameEn: 'Expert', border: 'border-rose-500/30 text-rose-400 bg-rose-950/20 hover:bg-rose-950/30', active: 'border-rose-500 bg-rose-500 text-black shadow-[0_2px_10px_rgba(239,68,68,0.3)]' }
-                    ].map((lvl) => {
-                      const isLvlSel = difficulty === lvl.id;
-                      return (
-                        <button
-                          key={lvl.id}
-                          type="button"
-                          onClick={() => setDifficulty(lvl.id as Difficulty)}
-                          className={`p-2 rounded-xl border text-[11px] font-black transition-all duration-200 cursor-pointer flex flex-col items-center justify-center leading-tight ${isLvlSel ? lvl.active : lvl.border}`}
-                        >
-                          <span>{lang === 'KU' ? lvl.nameKu : lang === 'AR' ? lvl.nameAr : lvl.nameEn}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-2 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAiSetupModal(false)}
-                    className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 active:scale-95 text-neutral-400 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer border border-white/10"
-                  >
-                    {lang === 'KU' ? 'پاشگەزبوونەوە' : lang === 'AR' ? 'إلغاء' : 'Cancel'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={startGame}
-                    className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-400 to-amber-600 hover:scale-[1.02] active:scale-95 text-[#050508] font-black text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-amber-500/20 border border-yellow-300/30 flex items-center justify-center gap-2"
-                  >
-                    <span>⚔️</span>
-                    <span>{lang === 'KU' ? 'دەستپێکردن' : lang === 'AR' ? 'بدء اللعب' : 'Launch'}</span>
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
+        <AISetupModal
+          isOpen={showAiSetupModal}
+          onClose={() => setShowAiSetupModal(false)}
+          lang={lang}
+          playerName={player1Name}
+          setPlayerName={setPlayer1Name}
+          difficulty={difficulty}
+          setDifficulty={setDifficulty}
+          onStartGame={startGame}
+          t={t}
+        />
       </AnimatePresence>
 
       {/* Cache Clear Success Toast */}
@@ -1263,6 +741,26 @@ export default function App() {
                 : lang === 'AR'
                 ? 'تم مسح ذاكرة التخزين المؤقت بنجاح! جاري التحديث...'
                 : 'Cache cleared successfully! Refreshing...'}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 1-Second Arabic Dhikr Notification Overlay */}
+      <AnimatePresence>
+        {activeDhikr && (
+          <motion.div
+            initial={{ opacity: 0, y: -45, scale: 0.85 }}
+            animate={{ opacity: 1, y: 16, scale: 1 }}
+            exit={{ opacity: 0, y: -25, scale: 0.85 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-6 py-2 rounded-full bg-[#051a14]/95 border-2 border-emerald-500/40 shadow-[0_10px_35px_rgba(16,185,129,0.35)] text-emerald-300 text-sm font-bold flex items-center gap-2.5 backdrop-blur-md cursor-default pointer-events-none"
+            dir="rtl"
+            id="dhikr-notification-toast"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            <span className="font-semibold text-xs sm:text-sm tracking-wide select-none drop-shadow-sm font-sans">
+              {activeDhikr}
             </span>
           </motion.div>
         )}
@@ -1312,6 +810,42 @@ export default function App() {
               setPlayer1Name(updated.p1.name);
               setPlayer2Name(updated.p2.name);
             }}
+          />
+        )}
+
+        {showCampaign && (
+          <CampaignPanel
+            lang={lang}
+            onClose={() => setShowCampaign(false)}
+            onChallenge={startCampaignChallenge}
+          />
+        )}
+
+        {showCoach && (
+          <CoachPanel
+            lang={lang}
+            onClose={() => setShowCoach(false)}
+          />
+        )}
+
+        {showPlayStorePolicies && (
+          <PlayStorePoliciesModal
+            lang={lang}
+            onClose={() => setShowPlayStorePolicies(false)}
+          />
+        )}
+
+        {showDamaRules && (
+          <DamaRulesModal
+            lang={lang}
+            onClose={() => setShowDamaRules(false)}
+          />
+        )}
+
+        {showAboutUsPortfolio && (
+          <AboutUsPortfolioModal
+            lang={lang}
+            onClose={() => setShowAboutUsPortfolio(false)}
           />
         )}
       </AnimatePresence>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>دەربارەی مۆبایل داڕێژەر • Kosrat Developer Profile</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;600;700;800;950&family=Space+Grotesk:wght@400;700;900&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Kufi Arabic"', 'sans-serif'],
+            display: ['"Space Grotesk"', '"Noto Kufi Arabic"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(circle at center, #0d0c13 0%, #020205 100%);
+      font-family: 'Noto Kufi Arabic', sans-serif;
+      overflow-x: hidden;
+    }
+    .profile-card {
+      background: linear-gradient(135deg, rgba(13,13,18,0.95), rgba(5,5,8,0.98));
+      backdrop-filter: blur(20px);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.85);
+    }
+    @keyframes orbit {
+      0% { transform: rotate(0deg) translateX(120px) rotate(0deg); }
+      100% { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
+    }
+    .orbiting-star {
+      animation: orbit 15s linear infinite;
+    }
+  </style>
+</head>
+<body class="text-neutral-100 min-h-screen py-10 px-4 flex flex-col justify-between items-center relative selection:bg-cyan-500/30 selection:text-cyan-200">
+
+  <!-- Aesthetic backdrops -->
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#2b1f0e,transparent_75%)] opacity-35 -z-10"></div>
+  <div class="absolute top-1/4 right-10 w-96 h-96 bg-amber-500/5 blur-3xl rounded-full -z-10 animate-pulse"></div>
+  <div class="absolute bottom-1/4 left-10 w-96 h-96 bg-cyan-500/5 blur-3xl rounded-full -z-10"></div>
+
+  <!-- Inner Page Frame -->
+  <div class="max-w-2xl w-full my-auto z-10">
+    <div class="profile-card border-2 border-[#fbbf24]/30 rounded-3xl p-6 sm:p-10 relative overflow-hidden">
+      <!-- Decorative gold elements -->
+      <div class="absolute top-0 left-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -translate-x-6 -translate-y-6"></div>
+      <div class="absolute bottom-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl translate-x-6 translate-y-6"></div>
+
+      <!-- Creator Avatar with double glowing border rings -->
+      <div class="flex flex-col items-center text-center">
+        <div class="relative mb-6">
+          <div class="absolute inset-0 rounded-full bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 animate-spin blur-md opacity-75" style="animation-duration: 12s;"></div>
+          <!-- Real 3D-styled user avatar placeholder avatar -->
+          <div class="relative w-28 h-28 rounded-full border-4 border-amber-400/80 bg-slate-900 flex items-center justify-center overflow-hidden shadow-2xl">
+            <span class="text-5xl">👤</span>
+          </div>
+          <!-- Mini Crown -->
+          <span class="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl select-none animate-bounce">👑</span>
+        </div>
+
+        <h1 class="text-2xl sm:text-3.5xl font-black text-white leading-tight mb-2">
+          کۆسرەت • Kosrat Dev
+        </h1>
+        <p class="text-xs sm:text-sm text-amber-400 font-extrabold tracking-wider uppercase mb-5 font-display flex items-center gap-1.5 justify-center">
+          <span>Senior Game Engineer</span> • <span>Android Publisher</span>
+        </p>
+
+        <!-- Dynamic Statistics Row -->
+        <div class="grid grid-cols-3 gap-3 w-full max-w-sm bg-black/45 hover:bg-black/60 border border-white/5 p-3 rounded-2xl mb-6 transition-all duration-300">
+          <div class="text-center border-l border-white/5 last:border-0 pl-1">
+            <div class="text-base sm:text-lg font-black text-white">7+</div>
+            <div class="text-[9px] text-neutral-400 font-bold">ساڵ ئەزموون</div>
+          </div>
+          <div class="text-center border-l border-white/5 last:border-0 pl-1">
+            <div class="text-base sm:text-lg font-black text-amber-400">12+</div>
+            <div class="text-[9px] text-neutral-400 font-bold">بەرنامەی بڵاوکراو</div>
+          </div>
+          <div class="text-center">
+            <div class="text-base sm:text-lg font-black text-white">100K+</div>
+            <div class="text-[9px] text-neutral-400 font-bold">داونلۆد فەرمی</div>
+          </div>
+        </div>
+
+        <!-- Bio description block -->
+        <div class="text-right text-xs sm:text-sm text-neutral-300 font-bold leading-relaxed mb-6 space-y-3 px-1">
+          <p>
+            بێژەر و داڕێژەری فەرمی سیستەمی ئەندرۆید و ئای ئۆ ئێس لە کوردستان. هەمیشە هەوڵدەدەم بۆ پێشکەشکردنی نەرمەکاڵا و یارییە مۆدێرنەکان بە زمان و جوانی مێژوویی گەلی کورد بە کوالێتیەکی نایاب و بێ هاوتا.
+          </p>
+          <p>
+            هەڵوێست و ئامانجی سەرەکیم، بەرەوپێشبردنی ئاستی تەکنەلۆژی لە کوردستانە هاوشانی نوێترین تەکنیکەکانی هوشیاری دەستکرد بۆ یارییەکان (AI) زۆرترین کات و بەرهەمەکانمان بێبەرامبەر دەخەینە بەردەست بەژداربووان.
+          </p>
+        </div>
+
+        <!-- Tech/Skills Tags Grid -->
+        <div class="flex flex-wrap justify-center gap-1.5 mb-8">
+          <span class="px-2.5 py-1 bg-white/5 hover:bg-amber-500/10 hover:text-amber-300 transition-colors border border-white/5 hover:border-amber-500/20 rounded-lg text-[10px] font-black">React Native</span>
+          <span class="px-2.5 py-1 bg-white/5 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors border border-white/5 hover:border-cyan-500/20 rounded-lg text-[10px] font-black">Kotlin / Compose</span>
+          <span class="px-2.5 py-1 bg-white/5 hover:bg-purple-500/10 hover:text-purple-300 transition-colors border border-white/5 hover:border-purple-500/20 rounded-lg text-[10px] font-black">Flutter / Dart</span>
+          <span class="px-2.5 py-1 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors border border-white/5 hover:border-emerald-500/20 rounded-lg text-[10px] font-black">AI Gaming Strategy</span>
+          <span class="px-2.5 py-1 bg-white/5 hover:bg-rose-500/10 hover:text-rose-300 transition-colors border border-white/5 hover:border-rose-500/20 rounded-lg text-[10px] font-black">PostgreSQL / SQLite</span>
+        </div>
+
+        <!-- Interactive Direct Navigation Action buttons -->
+        <div class="flex flex-col sm:flex-row gap-3 w-full">
+          <a href="/" target="_self" class="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 text-center font-black text-xs rounded-xl shadow-lg shadow-amber-500/15 transition active:scale-95 flex items-center justify-center gap-1.5 selection:bg-transparent">
+            <span>🎮</span>
+            <span>گەڕانەوە بۆ یاری دامە</span>
+          </a>
+
+          <a href="/more.html" target="_self" class="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-center font-black text-xs rounded-xl shadow-lg shadow-cyan-500/15 transition active:scale-95 flex items-center justify-center gap-1.5 selection:bg-transparent">
+            <span>🚀</span>
+            <span>بەرنامەکانی ترمان ببینە</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact email footer -->
+  <footer class="text-center py-6 mt-10 text-[10.5px] font-bold text-neutral-500 flex flex-col items-center gap-1.5 w-full">
+    <div>کۆسرەت داڕێژەر • پۆرتفۆلیۆی فەرمی گەشەپێدەر</div>
+    <div class="flex items-center gap-2">
+      <span class="text-neutral-600">پەیوەندی:</span>
+      <a href="mailto:darmanzany2026@gmail.com" class="text-neutral-400 hover:text-amber-400 transition underline">darmanzany2026@gmail.com</a>
+    </div>
+  </footer>
+
+</body>
+</html>

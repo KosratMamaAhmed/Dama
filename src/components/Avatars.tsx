@@ -42,13 +42,14 @@ export function KurdishManAvatar() {
           {/* Authentic SVG Character design with Kurdish Jamadani turban and traditional mustache */}
           <svg viewBox="0 0 100 100" className="w-full h-full text-white" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              {/* Detailed Jamadani Checkered Pattern */}
-              <pattern id="jamadani" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                <rect width="10" height="10" fill="#E31E24" />
-                <rect width="5" height="10" fill="#ffffff" />
-                <rect width="10" height="5" fill="#ffffff" opacity="0.3" />
-                <line x1="0" y1="0" x2="10" y2="10" stroke="#E31E24" strokeWidth="1" />
-                <line x1="10" y1="0" x2="0" y2="10" stroke="#E31E24" strokeWidth="1" />
+              {/* Detailed Black Spotted White Pearls Pattern */}
+              <pattern id="jamadani" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(0)">
+                <rect width="12" height="12" fill="#121214" />
+                <circle cx="6" cy="6" r="1.5" fill="#ffffff" />
+                <circle cx="0" cy="0" r="1" fill="#ffffff" opacity="0.8" />
+                <circle cx="12" cy="0" r="1" fill="#ffffff" opacity="0.8" />
+                <circle cx="0" cy="12" r="1" fill="#ffffff" opacity="0.8" />
+                <circle cx="12" cy="12" r="1" fill="#ffffff" opacity="0.8" />
               </pattern>
             </defs>
 

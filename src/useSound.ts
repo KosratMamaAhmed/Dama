@@ -3,7 +3,7 @@ import { useCallback, useRef } from 'react';
 export function useDropSound() {
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const playSound = useCallback((type: 'move' | 'capture' | 'win' | 'error' = 'move') => {
+  const playSound = useCallback((type: 'move' | 'capture' | 'win' | 'error' | 'king' = 'move') => {
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -15,44 +15,133 @@ export function useDropSound() {
         audioCtx.resume();
       }
 
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
       if (type === 'win') {
-        oscillator.type = 'triangle';
-        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-        oscillator.frequency.setValueAtTime(554, audioCtx.currentTime + 0.1);
-        oscillator.frequency.setValueAtTime(659, audioCtx.currentTime + 0.2);
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
-        
-        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        // High-quality Royal Folk Victory fanfare
+        const notes = [440, 554, 659, 880, 1109]; // Kurdish major scale notes
+        notes.forEach((freq, index) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + index * 0.1);
+          
+          gain.gain.setValueAtTime(0, audioCtx.currentTime + index * 0.1);
+          gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + index * 0.1 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + index * 0.1 + 0.3);
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + index * 0.1);
+          osc.stop(audioCtx.currentTime + index * 0.1 + 0.4);
+        });
+      } else if (type === 'king') {
+        // Celestial metallic wind sweep chime for King promotions!
+        const sweepRates = [600, 800, 1000, 1300, 1600];
+        sweepRates.forEach((freq, index) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + index * 0.07);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + index * 0.07 + 0.12);
+          
+          gain.gain.setValueAtTime(0, audioCtx.currentTime + index * 0.07);
+          gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + index * 0.07 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + index * 0.07 + 0.15);
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + index * 0.07);
+          osc.stop(audioCtx.currentTime + index * 0.07 + 0.2);
+        });
       } else if (type === 'capture') {
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        // Wood pieces clattering (Double-knock impact simulation)
+        // Primary impact body
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(120, audioCtx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.12);
+        
+        gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+        
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start();
+        osc1.stop(audioCtx.currentTime + 0.12);
+
+        // High frequency click crack
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(900, audioCtx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.06);
+        
+        gain2.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+        
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.07);
+        
+        // Secondary bouncing clack
+        const osc3 = audioCtx.createOscillator();
+        const gain3 = audioCtx.createGain();
+        osc3.type = 'triangle';
+        osc3.frequency.setValueAtTime(350, audioCtx.currentTime + 0.05);
+        osc3.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.13);
+        
+        gain3.gain.setValueAtTime(0.25, audioCtx.currentTime + 0.05);
+        gain3.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.13);
+        
+        osc3.connect(gain3);
+        gain3.connect(audioCtx.destination);
+        osc3.start(audioCtx.currentTime + 0.05);
+        osc3.stop(audioCtx.currentTime + 0.14);
       } else if (type === 'error') {
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(120, audioCtx.currentTime);
-        oscillator.frequency.setValueAtTime(100, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(110, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.16);
       } else {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.8, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        // Standard Move - Clean woody slide-knock thud
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(260, audioCtx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.08);
+        
+        gain1.gain.setValueAtTime(0.65, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start();
+        osc1.stop(audioCtx.currentTime + 0.09);
+
+        // High frequency clack transient (to sound like solid polished walnut wood)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1100, audioCtx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.03);
+        
+        gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+        
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.04);
       }
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + (type === 'win' ? 0.6 : 0.15));
     } catch (e) {
       // Ignored if AudioContext is not supported
     }
