@@ -11,6 +11,11 @@ import { GameMode, Difficulty, BoardTheme, Player } from './types';
 import { TRANSLATIONS, Language } from './translations';
 import { getAIMove } from './ai';
 import MarkdownParser from './components/MarkdownParser';
+import AcademyPanel from './components/AcademyPanel';
+import PuzzlesPanel from './components/PuzzlesPanel';
+import StatsDashboard from './components/StatsDashboard';
+import ProfilesModal, { AvatarRenderer } from './components/ProfilesModal';
+import { getProfiles, checkAndUnlockAchievements, addMatchHistory, saveProfiles, TITLES } from './store/profileStore';
 
 type ScreenType = 'HOME' | 'PLAYING' | 'RULES';
 
@@ -123,12 +128,20 @@ export default function App() {
   const [theme, setTheme] = useState<BoardTheme>('CLASSIC_WOOD');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  const [player1Name, setPlayer1Name] = useState('');
-  const [player2Name, setPlayer2Name] = useState('');
+  const [p1Profile, setP1Profile] = useState(() => getProfiles().p1);
+  const [p2Profile, setP2Profile] = useState(() => getProfiles().p2);
+
+  const [player1Name, setPlayer1Name] = useState(() => getProfiles().p1.name);
+  const [player2Name, setPlayer2Name] = useState(() => getProfiles().p2.name);
   
   const [tokens, setTokens] = useState<number>(100);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
   const [showAiSetupModal, setShowAiSetupModal] = useState(false);
+
+  const [showPuzzles, setShowPuzzles] = useState(false);
+  const [showAcademy, setShowAcademy] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showProfiles, setShowProfiles] = useState(false);
 
   // Expanded menu settings items
   const [pieceStyle, setPieceStyle] = useState<string>('WHITE_BLACK');
@@ -203,7 +216,8 @@ export default function App() {
   useEffect(() => {
     if (gameState.winner && !prevWinner.current) {
       if (soundEnabled) playSound('win');
-      // Token Logic
+      
+      // Token state logic
       if (mode === 'AI') {
         if (gameState.winner === 'CYAN') {
           addWinTokens();
@@ -212,6 +226,94 @@ export default function App() {
         }
         setTokens(getTokens());
       }
+
+      // Profiles Statistics Updating on Game Over (offline analytics)
+      const currentCyanCount = gameState.board.flat().filter(p => p && p.player === 'CYAN').length;
+      const currentWhiteCount = gameState.board.flat().filter(p => p && p.player === 'WHITE').length;
+      const cyanLost = Math.max(0, 16 - currentCyanCount);
+      const whiteLost = Math.max(0, 16 - currentWhiteCount);
+
+      const profiles = getProfiles();
+      
+      // Update Player 1 info
+      profiles.p1.gamesPlayed += 1;
+      profiles.p1.totalJumpsCaptured += whiteLost;
+      
+      const isP1Winner = gameState.winner === 'CYAN';
+      
+      if (isP1Winner) {
+        profiles.p1.totalWins += 1;
+        profiles.p1.currentWinStreak += 1;
+        if (profiles.p1.currentWinStreak > profiles.p1.longestWinStreak) {
+          profiles.p1.longestWinStreak = profiles.p1.currentWinStreak;
+        }
+        // Reward bonus coins on winning match
+        profiles.p1.coinCount += 15;
+      } else {
+        profiles.p1.totalLosses += 1;
+        profiles.p1.currentWinStreak = 0;
+      }
+
+      // Update Player 2 info if local Pass & Play PVP
+      if (mode === 'PVP') {
+        profiles.p2.gamesPlayed += 1;
+        profiles.p2.totalJumpsCaptured += cyanLost;
+        
+        const isP2Winner = gameState.winner === 'WHITE';
+        if (isP2Winner) {
+          profiles.p2.totalWins += 1;
+          profiles.p2.currentWinStreak += 1;
+          if (profiles.p2.currentWinStreak > profiles.p2.longestWinStreak) {
+            profiles.p2.longestWinStreak = profiles.p2.currentWinStreak;
+          }
+          profiles.p2.coinCount += 15;
+        } else {
+          profiles.p2.totalLosses += 1;
+          profiles.p2.currentWinStreak = 0;
+        }
+      }
+
+      saveProfiles(profiles.p1, profiles.p2);
+      
+      // Synchronize state back
+      setP1Profile(profiles.p1);
+      setP2Profile(profiles.p2);
+
+      // Trigger achievement check
+      checkAndUnlockAchievements('p1', {
+        won: isP1Winner,
+        difficulty: mode === 'AI' ? difficulty : undefined,
+        hintsLeftMax: 5,
+        hintsLeftEnd: gameState.hintsLeft,
+        playerPiecesRemaining: currentCyanCount,
+        opponentPiecesCaptured: whiteLost,
+        promotedKingsCount: gameState.board.flat().filter(p => p && p.player === 'CYAN' && p.type === 'KING').length
+      });
+
+      if (mode === 'PVP') {
+        const isP2Winner = gameState.winner === 'WHITE';
+        checkAndUnlockAchievements('p2', {
+          won: isP2Winner,
+          hintsLeftMax: 5,
+          hintsLeftEnd: 5,
+          playerPiecesRemaining: currentWhiteCount,
+          opponentPiecesCaptured: cyanLost,
+          promotedKingsCount: gameState.board.flat().filter(p => p && p.player === 'WHITE' && p.type === 'KING').length
+        });
+      }
+
+      // Add to device Match History log list
+      addMatchHistory({
+        id: 'match_' + Date.now(),
+        date: new Date().toLocaleDateString(),
+        mode: mode,
+        difficulty: mode === 'AI' ? difficulty : undefined,
+        player1Name: profiles.p1.name,
+        player2Name: mode === 'AI' ? 'ژێری دەستکرد (مەکینە)' : profiles.p2.name,
+        winnerName: gameState.winner === 'CYAN' ? profiles.p1.name : (mode === 'AI' ? 'ژێری دەستکرد (مەکینە)' : profiles.p2.name),
+        piecesCaptured: gameState.winner === 'CYAN' ? whiteLost : cyanLost,
+        durationSeconds: 120
+      });
     } else if (gameState.board !== prevBoard.current) {
       // Detect captures & king actions
       const prevCyan = prevBoard.current?.flat().filter(p => p && p.player === 'CYAN').length ?? 16;
@@ -564,11 +666,73 @@ export default function App() {
             >
               <div className="space-y-6">
                 {/* Visual Header with glowing badge */}
-                <div className="text-center relative py-1">
+                <div className="text-center relative py-1 pb-1">
                   <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-40 h-10 bg-gradient-to-r from-amber-500/10 via-yellow-600/10 to-orange-500/10 blur-xl rounded-full" />
                   <span className="text-xs font-black tracking-widest text-[#fbbf24] select-none uppercase bg-white/5 px-4 py-1.5 border border-amber-500/20 rounded-full shadow-inner">
                     Dama / دامە
                   </span>
+                </div>
+
+                {/* Visual Player 1 Profile Card & Feature Center Dashboard */}
+                <div className="bg-slate-950/70 p-4 rounded-2xl border border-amber-500/15 relative overflow-hidden flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <AvatarRenderer 
+                      avatarId={p1Profile.avatarId} 
+                      frameId={p1Profile.selectedFrameId} 
+                      className="w-12 h-12"
+                    />
+                    <div className="flex-1 text-left space-y-0.5">
+                      <div className="flex items-center gap-1.5 justify-between">
+                        <span className="text-xs font-black text-white">{p1Profile.name}</span>
+                        {p1Profile.selectedTitleId && (
+                          <span className="text-[8.5px] bg-[#fbbf24]/10 text-[#fbbf24] px-1.5 py-0.5 rounded border border-[#fbbf24]/10 font-black uppercase tracking-wider scale-95">
+                            {TITLES.find(t => t.id === p1Profile.selectedTitleId)?.nameKu}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-3 text-[10px] text-neutral-400 font-bold">
+                        <span>🏆 {p1Profile.totalWins} {lang === 'KU' ? 'بردنەوە' : 'wins'}</span>
+                        <span className="text-orange-500 font-extrabold flex items-center gap-0.5">🔥 {p1Profile.currentWinStreak} {lang === 'KU' ? 'سەرکەوتن' : 'streak'}</span>
+                        <span className="text-[#fbbf24] font-black flex items-center gap-0.5">🪙 {p1Profile.coinCount}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4 Multi-Feature Micro Utilities Bar */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-white/5">
+                    <button
+                      onClick={() => setShowProfiles(true)}
+                      className="py-2 px-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-xl border border-white/5 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer hover:border-cyan-500/30"
+                    >
+                      <span className="text-xs">👤</span>
+                      <span>{lang === 'KU' ? 'پڕۆفایل' : lang === 'AR' ? 'الملف' : 'Profile'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowStats(true)}
+                      className="py-2 px-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-xl border border-white/5 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer hover:border-amber-500/30"
+                    >
+                      <span className="text-xs">📊</span>
+                      <span>{lang === 'KU' ? 'ئامارەکان' : lang === 'AR' ? 'التحليلات' : 'Analytics'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowPuzzles(true)}
+                      className="py-2 px-1 bg-amber-500/5 hover:bg-amber-500/15 text-amber-300 hover:text-amber-200 rounded-xl border border-amber-500/20 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <span className="text-xs">🧩</span>
+                      <span>{lang === 'KU' ? 'مەتەڵەکان' : lang === 'AR' ? 'الألغاز' : 'Puzzles'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowAcademy(true)}
+                      className="py-2 px-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-xl border border-white/5 text-[10px] font-black flex flex-col items-center gap-1 transition-all cursor-pointer hover:border-emerald-500/30"
+                    >
+                      <span className="text-xs">🎓</span>
+                      <span>{lang === 'KU' ? 'ئەکادیمیا' : lang === 'AR' ? 'التعليم' : 'Academy'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Mode Selection */}
@@ -1101,6 +1265,54 @@ export default function App() {
                 : 'Cache cleared successfully! Refreshing...'}
             </span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 4 Custom Offline Modules Overlay/Modals */}
+      <AnimatePresence>
+        {showAcademy && (
+          <AcademyPanel
+            lang={lang}
+            onClose={() => setShowAcademy(false)}
+          />
+        )}
+        
+        {showPuzzles && (
+          <PuzzlesPanel
+            lang={lang}
+            onClose={() => setShowPuzzles(false)}
+            playSound={playSound}
+            soundEnabled={soundEnabled}
+            onCoinsUpdated={() => {
+              setP1Profile(getProfiles().p1);
+              setP2Profile(getProfiles().p2);
+            }}
+          />
+        )}
+
+        {showStats && (
+          <StatsDashboard
+            lang={lang}
+            onClose={() => setShowStats(false)}
+            onProfileUpdated={() => {
+              setP1Profile(getProfiles().p1);
+              setP2Profile(getProfiles().p2);
+            }}
+          />
+        )}
+
+        {showProfiles && (
+          <ProfilesModal
+            lang={lang}
+            onClose={() => setShowProfiles(false)}
+            onSaved={() => {
+              const updated = getProfiles();
+              setP1Profile(updated.p1);
+              setP2Profile(updated.p2);
+              setPlayer1Name(updated.p1.name);
+              setPlayer2Name(updated.p2.name);
+            }}
+          />
         )}
       </AnimatePresence>
 
