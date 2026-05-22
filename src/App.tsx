@@ -1,5 +1,6 @@
 import React, { useReducer, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { App as CapApp } from '@capacitor/app';
 import { initialGameState, gameReducer } from './store/gameReducer';
 import Board from './components/Board';
 import InstallPrompt from './components/InstallPrompt';
@@ -30,7 +31,6 @@ import RulesView from './components/RulesView';
 import DhikrNotification from './components/DhikrNotification';
 
 type ScreenType = 'HOME' | 'PLAYING' | 'RULES';
-
 
 export default function App() {
   const [lang, setLangInternal] = useState<Language>(() => {
@@ -147,7 +147,6 @@ export default function App() {
     };
   }, []);
 
-
   useEffect(() => {
     if (screen !== 'PLAYING' || !timeAttack || gameState.winner) return;
 
@@ -242,8 +241,6 @@ export default function App() {
           }
         }
       }
-
-      // Shaking disabled to support smooth performance on all devices (anti-lag & anti-bounce)
 
       // Voice commentary bubbling
       if (bubbleTimeoutRef.current) {
@@ -424,7 +421,8 @@ export default function App() {
       const now = Date.now();
       if (now - backPressTimeRef.current < 2000) {
         setExitToast(false);
-        window.history.go(-1);
+        // گۆڕانکاری سەرەکی بۆ چوونەدەرەوە بە سەلامەتی لە ئەندرۆید
+        CapApp.exitApp();
       } else {
         backPressTimeRef.current = now;
         setExitToast(true);
@@ -432,6 +430,32 @@ export default function App() {
       }
     }
   };
+
+  // بەکارهێنانی ئاماژەپێدەر (Ref) بۆ ئەوەی بەردەوام نوێترین وەشانی فەنکشنی handleBack لەناو Capacitor دابنێین
+  // بەبێ ئەوەی کێشەی دوبارە ڕێندەرکردنەوە دروست بکات
+  const handleBackRef = useRef(handleBack);
+  useEffect(() => {
+    handleBackRef.current = handleBack;
+  });
+
+  // زیادکردنی Capacitor Back Button Listener (بۆ گرتنی دوگمەی ئەندرۆید)
+  useEffect(() => {
+    let backListener: any;
+    
+    const setupBackListener = async () => {
+      backListener = await CapApp.addListener('backButton', () => {
+        handleBackRef.current();
+      });
+    };
+
+    setupBackListener();
+
+    return () => {
+      if (backListener) {
+        backListener.remove();
+      }
+    };
+  }, []); // دایناوە لە ناوەوە تەنها یەکجار کاربکات بۆ ڕێگریکردن لە کراش
 
   // Initialize window history state on first-load to enable robust backtracking support
   useEffect(() => {
@@ -555,7 +579,7 @@ export default function App() {
           const now = Date.now();
           if (now - backPressTimeRef.current < 2000) {
             setExitToast(false);
-            window.history.go(-1);
+            CapApp.exitApp();
           } else {
             backPressTimeRef.current = now;
             setExitToast(true);
@@ -593,8 +617,10 @@ export default function App() {
     showAiSetupModal,
     tokens
   ]);
+
   const cyanCount = gameState.board.flat().filter((p: any) => p && p.player === 'CYAN').length;
   const whiteCount = gameState.board.flat().filter((p: any) => p && p.player === 'WHITE').length;
+
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} className="min-h-screen bg-[#010915] text-neutral-100 flex flex-col font-sans overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200 relative pt-[env(safe-area-inset-top,1.2rem)] pb-[env(safe-area-inset-bottom,1.5rem)] pl-[env(safe-area-inset-left,0.5rem)] pr-[env(safe-area-inset-right,0.5rem)]">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#0b213c,#01050e)] opacity-100 -z-20" />

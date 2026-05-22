@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- مۆڵەتی ئینتەرنێت بۆ دروستکردنی پەیوەندی بە گۆگڵ درایڤ -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- مۆڵەتی کامێرا بۆ خوێندنەوەی سکانەری باڕکۆد -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- مۆڵەتەکانی هەڵگرتن بۆ داگرتنی داتابەیس (بۆ ئەندرۆیدی 12 و خوارتر) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -34,8 +46,4 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
     </application>
-
-    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
 </manifest>
